@@ -11,11 +11,12 @@
   --blue:#286c91; --rust:#ab623e; --muted:#dee4e2; --accent:#293c40;
 }
 *{box-sizing:border-box}
-body{margin:0;background:var(--paper);color:var(--ink);font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
+html{height:100%}
+body{margin:0;min-height:100vh;min-height:100dvh;background:var(--paper);color:var(--ink);font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
 button{font:inherit;cursor:pointer}
-.viewer{width:min(100%,680px);margin:0 auto;padding:9px 11px 12px;position:relative;user-select:none;-webkit-user-select:none}
+.viewer{width:min(100%,680px);height:100vh;height:100dvh;min-height:360px;margin:0 auto;padding:calc(9px + env(safe-area-inset-top, 0px)) 11px calc(12px + env(safe-area-inset-bottom, 0px));position:relative;display:flex;flex-direction:column;user-select:none;-webkit-user-select:none}
 .toolbar,.footer,.legend,.actions,.segmented{display:flex;align-items:center}
-.toolbar{gap:9px;min-height:46px;justify-content:space-between;margin:0 1px 7px}
+.toolbar{flex-shrink:0;gap:9px;min-height:46px;justify-content:space-between;margin:0 1px 7px}
 .brand{white-space:nowrap;display:flex;align-items:baseline;gap:7px;min-width:0}
 .brand .math{font-family:Georgia,"Times New Roman",serif;font-size:24px;font-style:italic;letter-spacing:-.5px}
 .brand .subtitle{font-size:13px;letter-spacing:.01em;color:var(--subtle)}
@@ -30,7 +31,7 @@ button{font:inherit;cursor:pointer}
 .iconbutton:hover,.textbutton:hover{background:#edf1ef;color:#273b3d}
 .iconbutton:focus-visible,.textbutton:focus-visible,.segmented button:focus-visible{outline:2px solid #457b97;outline-offset:2px}
 .iconbutton svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
-.plotwrap{position:relative;background:var(--surface);height:clamp(410px,69dvh,725px);overflow:hidden;isolation:isolate}
+.plotwrap{position:relative;background:var(--surface);flex:1 1 0;min-height:0;overflow:hidden;isolation:isolate}
 .plot{display:block;width:100%;height:100%;touch-action:none;cursor:grab;outline:none}
 .plot.dragging{cursor:grabbing}
 #uGlobalMaster path,#uLocalMaster path{stroke:var(--blue);stroke-width:1.6;fill:none;stroke-linejoin:round;stroke-linecap:round;vector-effect:non-scaling-stroke}
@@ -52,7 +53,7 @@ button{font:inherit;cursor:pointer}
 .axisname.im{top:5px;left:5px}
 .annotation{z-index:5;position:absolute;left:10px;bottom:10px;border:1px solid #e5eae6;background:#fffffff0;color:#354548;font-size:14px;padding:5px 8px;border-radius:6px;pointer-events:none;box-shadow:0 2px 10px #243e4410}
 .annotation[hidden]{display:none}
-.footer{min-height:42px;margin-top:7px;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.footer{flex-shrink:0;min-height:42px;margin-top:7px;justify-content:space-between;gap:8px;flex-wrap:wrap}
 .legend{gap:11px;flex-wrap:wrap}
 .legend-part{font-family:Georgia,"Times New Roman",serif;font-size:15px;white-space:nowrap;color:#4b5b5d;display:inline-flex;gap:5px;align-items:center}
 .swatch{width:20px;height:0;border-top-style:solid;border-top-width:2px;display:inline-block}
@@ -60,27 +61,26 @@ button{font:inherit;cursor:pointer}
 .swatch.rust{border-color:var(--rust);border-top-width:1.5px}
 .actions{gap:2px}
 .textbutton{font-size:15px;padding:9px 10px;min-height:40px}
-.hint{font-size:12px;color:#829092;text-align:center;line-height:1.4;margin-top:3px}
+.hint{flex-shrink:0;font-size:12px;color:#829092;text-align:center;line-height:1.4;margin-top:3px}
 .layerspanel{position:absolute;z-index:30;right:10px;top:56px;width:min(310px,calc(100vw - 20px));background:#fff;border:1px solid #e0e6e2;border-radius:11px;box-shadow:0 11px 35px #1a2b2e22;padding:12px 13px;user-select:none}
 .layerspanel[hidden]{display:none}
 .layerspanel .panelhead{font-size:13px;color:#5f6e72;font-weight:600;letter-spacing:.03em;margin:0 0 9px}
 .layerspanel label{display:flex;align-items:center;gap:12px;font-size:15px;color:#34464a;min-height:41px;padding:7px 0;cursor:pointer}
 .layerspanel input{accent-color:#426f85;inline-size:18px;block-size:18px;margin:0}
-.layerspanel .mini{margin-top:8px;padding-top:10px;border-top:1px solid #edf0ee;color:#64787a;font-size:12px;line-height:1.5}
 /* Scale keys live OUTSIDE the transformed domain and disappear during zoom. */
 .scale-keys{position:absolute;inset:0;z-index:4;pointer-events:none}
 .scale-key{position:absolute;top:50%;transform:translateY(-50%);width:114px;display:flex;flex-direction:column;align-items:center;gap:5px;color:#475659;font-size:14px}
 .scale-key[hidden]{display:none!important}
 .scale-key.phase{left:4px}.scale-key.modulus{right:4px}
-.scale-key .keytitle{font:italic 15px Georgia,"Times New Roman",serif}
+.scale-key .keytitle{font:15px Georgia,"Times New Roman",serif}
+.scale-key .keytitle .math-symbol{font-style:italic}
+.scale-key .keytitle .operator{font-style:normal}
 .phase-key-svg{width:110px;height:110px;overflow:visible}
 .phase-key-svg text{fill:#46575a;font-size:13px;font-family:Georgia,"Times New Roman",serif}
 .magnitude-legend{display:flex;align-items:stretch;gap:10px;height:140px;margin-top:3px}
 .magnitude-bar{width:24px;border-radius:2px;border:1px solid #929d9c55;background:linear-gradient(to bottom,rgb(56,56,56),rgb(126,126,124) 43%,rgb(231,232,229) 72%,rgb(251,252,250))}
 .magnitude-ticks{display:flex;flex-direction:column;justify-content:space-between;font-size:13px;line-height:1.1;color:#455659}
 @media (max-width:390px){.scale-key{width:104px}.phase-key-svg{width:100px;height:100px}}
-.viewer.expanded{position:fixed;inset:0;z-index:9999;background:var(--paper);width:100%;max-width:none;padding:env(safe-area-inset-top,7px) 9px env(safe-area-inset-bottom,7px);display:flex;flex-direction:column}
-.viewer.expanded .plotwrap{flex:1;min-height:0;height:auto}
 @media(max-width:390px){
   .viewer{padding-inline:7px}
   .brand .subtitle{font-size:14px}
@@ -93,7 +93,6 @@ button{font:inherit;cursor:pointer}
 }
 @media(min-width:760px){
  .viewer{padding:14px 10px 12px}
- .plotwrap{height:clamp(500px,72vh,730px)}
  .brand .math{font-size:26px}
  .brand .subtitle{font-size:14px}
  .hint{font-size:13px}
@@ -125,8 +124,7 @@ button{font:inherit;cursor:pointer}
     <label><input type="checkbox" id="layerPole"><span>Pole · s = 1</span></label>
     <label><input type="checkbox" id="layerCritical"><span>Critical line · Re s = ½</span></label>
     <label><input type="checkbox" id="layerLabels"><span>Coordinate labels</span></label>
-    <div class="mini">ζ(s) has a simple pole at s = 1. The real axis is part of Im ζ(s) = 0.</div>
-  </section>
+      </section>
 
   <div class="plotwrap" id="plotwrap">
     <svg id="plot" class="plot" xmlns="http://www.w3.org/2000/svg" tabindex="0" role="img" aria-label="Real and imaginary zero contours of the Riemann zeta function. Pan, zoom or tap a zero.">
@@ -143,11 +141,11 @@ button{font:inherit;cursor:pointer}
     </svg>
     <div class="scale-keys" aria-hidden="true">
       <div class="scale-key phase" id="phaseKey" hidden>
-        <span class="keytitle">arg ζ(s)</span>
+        <span class="keytitle"><span class="operator">arg</span> <span class="math-symbol">ζ(s)</span></span>
         <svg class="phase-key-svg" viewBox="0 0 132 132"><g id="phaseWheel"></g><text x="66" y="12" text-anchor="middle">π/2</text><text x="66" y="129" text-anchor="middle">−π/2</text><text x="126" y="70" text-anchor="end">0</text><text x="6" y="70">π</text></svg>
       </div>
       <div class="scale-key modulus" id="modulusKey" hidden>
-        <span class="keytitle">|ζ(s)|</span>
+        <span class="keytitle"><span class="math-symbol">|ζ(s)|</span></span>
         <div class="magnitude-legend"><div class="magnitude-bar"></div><div class="magnitude-ticks"><span>≥10</span><span>1</span><span>≤0.2</span></div></div>
       </div>
     </div>
@@ -163,9 +161,6 @@ button{font:inherit;cursor:pointer}
     <div class="actions">
       <button type="button" id="focusButton" class="textbutton" title="Return to the first five zeros">Focus</button>
       <button type="button" id="allButton" class="textbutton" title="Fit the upper and lower halves, including all 22 nontrivial and five trivial zeros">All</button>
-      <button type="button" id="expandButton" class="iconbutton" title="Expand viewer" aria-label="Expand viewer">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H3v5 M16 3h5v5 M3 16v5h5 M21 16v5h-5"/></svg>
-      </button>
     </div>
   </div>
   <div class="hint">Drag to pan · Pinch or scroll to zoom · Tap a zero to inspect it</div>
@@ -174,7 +169,6 @@ button{font:inherit;cursor:pointer}
 'use strict';
 const DATA_BOUNDS=[-11.0, 5.0, -55.0, 55.0]; const ZERO_COORDS=[[0.5, 14.134725141734695], [0.5, 21.022039638771556], [0.5, 25.01085758014569], [0.5, 30.424876125859512], [0.5, 32.93506158773919], [0.5, 37.586178158825675], [0.5, 40.9187190121475], [0.5, 43.327073280915], [0.5, 48.00515088116716], [0.5, 49.7738324776723], [0.5, 52.970321477714464], [0.5, -14.134725141734695], [0.5, -21.022039638771556], [0.5, -25.01085758014569], [0.5, -30.424876125859512], [0.5, -32.93506158773919], [0.5, -37.586178158825675], [0.5, -40.9187190121475], [0.5, -43.327073280915], [0.5, -48.00515088116716], [0.5, -49.7738324776723], [0.5, -52.970321477714464], [-2.0, 0], [-4.0, 0], [-6.0, 0], [-8.0, 0], [-10.0, 0]];
 (function(){
-  const viewer=document.getElementById('viewer');
   const svg=document.getElementById('plot');
   const panel=document.getElementById('layersPanel');
   const layerButton=document.getElementById('layersButton');
@@ -406,13 +400,6 @@ const DATA_BOUNDS=[-11.0, 5.0, -55.0, 55.0]; const ZERO_COORDS=[[0.5, 14.1347251
   document.addEventListener('keydown',e=>{if(e.key==='Escape')closePanel();});
   document.getElementById('focusButton').addEventListener('click',focus);
   document.getElementById('allButton').addEventListener('click',showAll);
-  const expandButton=document.getElementById('expandButton');
-  expandButton.addEventListener('click',()=>{
-    viewer.classList.toggle('expanded');
-    expandButton.setAttribute('aria-label',viewer.classList.contains('expanded')?'Close expanded viewer':'Expand viewer');
-    expandButton.setAttribute('title',viewer.classList.contains('expanded')?'Close expanded viewer':'Expand viewer');
-    requestAnimationFrame(update);
-  });
   svg.addEventListener('wheel',e=>{
     e.preventDefault();cancelAnimation();const p=svgPoint(e);
     zoomAt(Math.exp(-clamp(e.deltaY,-200,200)*.0023),p.x,p.y);
