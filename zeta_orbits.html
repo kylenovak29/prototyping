@@ -37,21 +37,9 @@ header {display:flex;align-items:center;justify-content:space-between;gap:10px;m
 button, input, summary {font:inherit;}
 button {cursor:pointer;}
 button:focus-visible,input:focus-visible,summary:focus-visible {outline:2px solid var(--blue);outline-offset:2px;}
-#appearance {position:relative;z-index:4;font-size:12px;color:var(--muted);}
-#appearance > summary {list-style:none;cursor:pointer;border:1px solid var(--line);border-radius:8px;padding:6px 10px;white-space:nowrap;color:var(--ink);background:var(--panel);}
-#appearance > summary::-webkit-details-marker {display:none;}
-#appearance > summary::after {content:' ▾';color:var(--muted);}
-#appearance[open] > summary::after {content:' ▴';}
-#appearanceBody {position:absolute;top:calc(100% + 6px);right:0;z-index:8;width:min(274px,85vw);padding:14px;border:1px solid var(--line);border-radius:12px;box-shadow:0 9px 25px #172a3430;background:#fff;color:var(--ink);}
-.diagHead {font-size:13px;font-weight:650;margin-bottom:9px;}
-.diagRow {display:flex;align-items:center;justify-content:space-between;gap:8px;margin:8px 0 5px;font-size:13px;}
-.diagRow output {font-variant-numeric:tabular-nums;color:var(--muted);}
-#appearance input[type=range] {width:100%;accent-color:var(--blue);}
-#appearance .fineprint {font-size:11px;color:var(--muted);line-height:1.3;margin-top:7px;}
 #plotFoot {display:flex;justify-content:space-between;align-items:center;gap:8px;min-height:36px;padding:0 3px;}
 #plotFoot .subtle {font-size:12px;color:var(--muted);}
 #limitValue {font-family:Cambria,"Times New Roman",serif;font-size:clamp(14px,1.25vw,17px);color:var(--ink);font-variant-numeric:tabular-nums;white-space:nowrap;}
-#plotFoot .scaleHint {font-size:12px;color:var(--muted);white-space:nowrap;}
 #footer {flex-shrink:0;border-top:1px solid var(--line);padding:11px 2px 13px;display:flex;flex-direction:column;gap:7px;}
 #cutoffRow,#counts {display:flex;justify-content:space-between;align-items:center;gap:12px;}
 #cutoffRow .name {font-size:14px;font-weight:620;}
@@ -64,12 +52,9 @@ button:focus-visible,input:focus-visible,summary:focus-visible {outline:2px soli
 #replay {padding:7px 13px;border:1px solid #b5c9d2;border-radius:9px;background:#edf5f8;color:#234c60;font-weight:650;font-size:13px;white-space:nowrap;min-height:34px;}
 #replay:hover {background:#e0edf3;}
 #replay[aria-pressed=true] {background:#d8e9ef;}
+#replay:disabled {opacity:.45;cursor:default;background:#f5f7f8;color:#7f8e95;}
 #autoLabel {font-size:13px;display:flex;align-items:center;gap:6px;white-space:nowrap;user-select:none;cursor:pointer;}
 #autoTrace {accent-color:var(--blue);width:17px;height:17px;margin:0;}
-#cameraMode {display:inline-flex;align-items:center;gap:0;border:1px solid var(--line);border-radius:9px;overflow:hidden;background:#fff;}
-#cameraMode button {background:transparent;border:0;padding:7px 11px;color:var(--muted);font-size:13px;min-height:32px;white-space:nowrap;}
-#cameraMode button + button {border-left:1px solid var(--line);}
-#cameraMode button[aria-pressed=true] {color:#234c60;background:#eaf2f5;font-weight:650;}
 #selectorHint {min-height:19px;}
 
 @media(max-width:680px) {
@@ -87,15 +72,12 @@ button:focus-visible,input:focus-visible,summary:focus-visible {outline:2px soli
   #orbitFrame {min-height:120px;}
   .legendItem {font-size:12px;}
   .legend {gap:8px;}
-  #appearance > summary {padding:5px 7px;font-size:12px;}
   #replayRow {gap:5px;}
   #replay {padding:6px 9px;font-size:12px;min-height:32px;}
   #autoLabel {gap:4px;font-size:12px;}
   #autoTrace {width:16px;height:16px;}
-  #cameraMode button {padding:6px 8px;font-size:12px;min-height:30px;}
   #plotFoot {gap:6px;min-height:34px;}
   #limitValue {font-size:14px;}
-  #plotFoot .scaleHint {font-size:11px;}
   #plotFoot .subtle {font-size:11px;}
   #footer {padding:9px 2px max(12px,env(safe-area-inset-bottom));gap:5px;}
   #cutoffRow .name {font-size:14px;}
@@ -124,18 +106,12 @@ button:focus-visible,input:focus-visible,summary:focus-visible {outline:2px soli
     <section id="selectorPanel" aria-label="Choose a complex exponent">
       <div class="panelHead"><span class="heading">Choose <span class="math">s = σ + it</span></span><span class="subtle">σ &gt; 1</span></div>
       <div class="chart" id="sFrame"><canvas id="sCanvas" aria-label="Drag to choose a complex exponent s, with real part between 1.15 and 3 and imaginary part between 0 and 20"></canvas></div>
-      <div id="selectorHint">Drag <i>s</i>, or tap a hollow point to try a suggested exponent.</div>
+      <div id="selectorHint">Drag or tap to choose <i>s</i>.</div>
     </section>
     <section id="orbitPanel" aria-label="Orbits in the complex zeta plane">
-      <div class="panelHead"><div class="legend"><span class="legendItem"><span class="legendStroke"></span>Dirichlet series</span><span class="legendItem"><span class="legendStroke rust"></span>Euler product</span></div>
-      <details id="appearance"><summary aria-label="Orbit appearance diagnostics">Appearance</summary><div id="appearanceBody">
-        <div class="diagHead">Appearance diagnostics</div>
-        <label class="diagRow" for="dotRadius">Dot radius <output id="dotRadiusValue">2.1 px</output></label><input id="dotRadius" type="range" min="1.1" max="3.6" step="0.1" value="2.1">
-        <label class="diagRow" for="dotContrast">Dot / curve contrast <output id="contrastValue">65% / 34%</output></label><input id="dotContrast" type="range" min="0" max="100" step="1" value="55">
-        <div class="fineprint">These controls affect only the appearance, not the approximations.</div>
-      </div></details></div>
+      <div class="panelHead"><div class="legend"><span class="legendItem"><span class="legendStroke"></span>Dirichlet series</span><span class="legendItem"><span class="legendStroke rust"></span>Euler product</span></div></div>
       <div class="chart" id="orbitFrame"><canvas id="orbitCanvas" aria-label="Complex plane showing partial sums and partial products converging toward zeta of s"></canvas></div>
-      <div id="plotFoot"><output id="limitValue" aria-label="Limiting zeta value">ζ(s) ≈ —</output><span class="scaleHint">Equal axis scales</span></div>
+      <div id="plotFoot"><output id="limitValue" aria-label="Limiting zeta value">ζ(s) ≈ —</output></div>
     </section>
   </main>
   <footer id="footer">
@@ -144,8 +120,7 @@ button:focus-visible,input:focus-visible,summary:focus-visible {outline:2px soli
     <div id="counts"><span>Series: <strong id="termCount">250</strong> terms</span><span>Product: <strong id="primeCount">53</strong> primes</span></div>
     <div id="replayRow">
       <button type="button" id="replay" aria-label="Replay convergence" title="Replay the orbits at the selected cutoff">↻ Replay</button>
-      <label id="autoLabel"><input type="checkbox" id="autoTrace" checked> Auto trace</label>
-      <div id="cameraMode" role="group" aria-label="Replay camera"><button id="fixedCamera" type="button" aria-pressed="true" title="Replay with fixed camera">Fixed</button><button id="followCamera" type="button" aria-pressed="false" title="Replay with camera following convergence">Follow</button></div>
+      <label id="autoLabel"><input type="checkbox" id="autoTrace"> Auto trace</label>
     </div>
     <div id="mathNote">Dots are discrete approximations; smooth connecting curves only guide the eye. Double-tap or double-click to refit.</div>
   </footer>
@@ -163,22 +138,13 @@ for(let n=1;n<=MAX_N;n++){if(sieve[n]){primes.push(n);pc++;}primePrefix[n]=pc;}
 const $=id=>document.getElementById(id);
 const sCanvas=$('sCanvas'),orbitCanvas=$('orbitCanvas'),slider=$('cutoff');
 const sc=sCanvas.getContext('2d'),oc=orbitCanvas.getContext('2d');
-const dotSizeSlider=$('dotRadius'),contrastSlider=$('dotContrast');
-let dotSize=2.1, contrast=55, cameraMode='fixed';
-function getDotAlpha(){return .45+.4*contrast/100;}
-function getCurveAlpha(){return .56-.4*contrast/100;}
-function updateAppearance(){dotSize=+dotSizeSlider.value;contrast=+contrastSlider.value;
- $('dotRadiusValue').textContent=dotSize.toFixed(1)+' px';
- $('contrastValue').textContent=`${Math.round(getDotAlpha()*100)}% / ${Math.round(getCurveAlpha()*100)}%`;
- drawW();}
-dotSizeSlider.addEventListener('input',updateAppearance);contrastSlider.addEventListener('input',updateAppearance);
-$('fixedCamera').addEventListener('click',()=>setCameraMode('fixed'));
-$('followCamera').addEventListener('click',()=>setCameraMode('follow'));
-function setCameraMode(mode){cameraMode=mode;
- $('fixedCamera').setAttribute('aria-pressed',String(mode==='fixed'));
- $('followCamera').setAttribute('aria-pressed',String(mode==='follow'));
-}
-$('replay').addEventListener('click',()=>beginTrace());
+const autoTrace=$('autoTrace'), replayBtn=$('replay');
+const dotSize=2.5, dotAlpha=.66, curveAlpha=.35;
+function getDotAlpha(){return dotAlpha;}
+function getCurveAlpha(){return curveAlpha;}
+function syncReplayState(){replayBtn.disabled=!autoTrace.checked;}
+autoTrace.addEventListener('input',syncReplayState);
+replayBtn.addEventListener('click',()=>{if(!replayBtn.disabled)beginTrace();});
 
 const exponent={re:1.5,im:6};
 let Sre=new Float64Array(MAX_N+1),Sim=new Float64Array(MAX_N+1),Pre=new Float64Array(primes.length+1),Pim=new Float64Array(primes.length+1);
@@ -186,7 +152,6 @@ let zeta={re:0,im:0}, nCutoff=250, showN=250,traceAnim=0,pressS=null, orbitPoint
 let animProgress=0, animCameraPath=null, lastTap=null;
 let wCamera={cx:0,cy:0,span:1}; // span = horizontal world units across the plot
 let canvasW={w:1,h:1},canvasS={w:1,h:1};
-const PRESETS=[{re:2,im:0,name:'A real baseline'},{re:1.5,im:6,name:'Clear spiraling'},{re:1.2,im:15,name:'Near the boundary'}];
 const prefersReduced=window.matchMedia('(prefers-reduced-motion: reduce)');
 const twopi=Math.PI*2;
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
@@ -259,17 +224,11 @@ function drawSelector(){
  for(const v of [1,2,3])paintLabel(c,String(v),sx(v),H-12,COLOR.muted,'center',11);
  for(const v of [0,10,20])paintLabel(c,String(v),box.l-9,sy(v),COLOR.muted,'right',11);
  paintLabel(c,'t',13,H/2,COLOR.muted,'center',12);paintLabel(c,'σ',W-11,13,COLOR.muted,'right',13);
- for(const preset of PRESETS){
-   const x=sx(preset.re),y=sy(preset.im);c.beginPath();c.arc(x,y,5.3,0,twopi);c.fillStyle='#fff';c.fill();c.lineWidth=1.5;c.strokeStyle='#9caeb4';c.stroke();
- }
  const px=sx(exponent.re),py=sy(exponent.im);c.strokeStyle='#87aab7';c.lineWidth=1;c.setLineDash([3,4]);c.beginPath();c.moveTo(px,box.b);c.lineTo(px,py);c.lineTo(box.l,py);c.stroke();c.setLineDash([]);
  c.beginPath();c.arc(px,py,8,0,twopi);c.fillStyle='white';c.fill();c.strokeStyle=COLOR.blue;c.lineWidth=3;c.stroke();
  c.beginPath();c.arc(px,py,3.8,0,twopi);c.fillStyle=COLOR.blue;c.fill();
  c._selectorBox=box; c._selectorSX=sx;c._selectorSY=sy;
 }
-function hitPreset(e){const r=sCanvas.getBoundingClientRect(),px=e.clientX-r.left,py=e.clientY-r.top;
- for(const p of PRESETS)if(Math.hypot(px-sc._selectorSX(p.re),py-sc._selectorSY(p.im))<=16)return p;
- return null;}
 function selectorPoint(e){const r=sCanvas.getBoundingClientRect(),b=sc._selectorBox,x=e.clientX-r.left,y=e.clientY-r.top;
  return {re:clamp(1+(x-b.l)/(b.r-b.l)*(3.05-1),1.15,3),im:clamp(20*(b.b-y)/(b.b-b.t),0,20)};
 }
@@ -390,12 +349,14 @@ function syncCutoffDisplay(level=showN){
 function cancelTrace(){
  if(traceAnim){cancelAnimationFrame(traceAnim);traceAnim=0;}
  animProgress=0;animCameraPath=null;showN=nCutoff;
- syncCutoffDisplay();$('replay').setAttribute('aria-pressed','false');
+ syncCutoffDisplay();replayBtn.setAttribute('aria-pressed','false');
 }
 function smoothstep(a,b,x){const u=clamp((x-a)/(b-a),0,1);return u*u*(3-2*u);}
 function mix(a,b,t){return a+(b-a)*t;}
 function mixLog(a,b,t){return Math.exp(mix(Math.log(a),Math.log(b),t));}
-function nAtFraction(t,goal){return clamp(Math.round(Math.exp(Math.log(Math.max(1,goal))*t)),1,goal);}
+function nAtFractionRaw(u,goal){return clamp(Math.round(Math.exp(Math.log(Math.max(1,goal))*u)),1,goal);}
+function traceProgress(t){return clamp(0.2*smoothstep(0,.14,t)+0.8*smoothstep(0,1,t),0,1);}
+function nAtFraction(t,goal){return nAtFractionRaw(traceProgress(t),goal);}
 function calculateFollowPath(goal,initialCamera){
  // The full orbits are already available. Make a monotonic, look-ahead envelope:
  // for each cutoff N, cover ALL not-yet-shown points plus the recent N/2..N tail
@@ -429,30 +390,30 @@ function sampleCameraPath(path,u){
  return {cx:mix(a.cx,b.cx,r),cy:mix(a.cy,b.cy,r),span:mixLog(a.span,b.span,r)};
 }
 function beginTrace(){
- cancelTrace();if(nCutoff<=1||prefersReduced.matches)return;
- const goal=nCutoff,follow=cameraMode==='follow';
- if(follow)animCameraPath=calculateFollowPath(goal,{...wCamera});
- const path=animCameraPath,begin=performance.now(),dur=follow?4300:2600;
- $('replay').setAttribute('aria-pressed','true');
+ cancelTrace();if(nCutoff<=1||prefersReduced.matches||!autoTrace.checked)return;
+ const goal=nCutoff;
+ animCameraPath=calculateFollowPath(goal,{...wCamera});
+ const path=animCameraPath,begin=performance.now(),dur=4200;
+ replayBtn.setAttribute('aria-pressed','true');
  function step(now){
   const t=clamp((now-begin)/dur,0,1);
   animProgress=t;showN=nAtFraction(t,goal);
   if(path)wCamera=sampleCameraPath(path,t);
   syncCutoffDisplay(showN);drawW();
   if(t<1)traceAnim=requestAnimationFrame(step);
-  else {traceAnim=0;animCameraPath=null;showN=goal;syncCutoffDisplay(goal);$('replay').setAttribute('aria-pressed','false');drawW();}
+  else {traceAnim=0;animCameraPath=null;showN=goal;syncCutoffDisplay(goal);replayBtn.setAttribute('aria-pressed','false');drawW();}
  }
  traceAnim=requestAnimationFrame(step);
 }
 function updateCutoff(n){cancelTrace();nCutoff=clamp(n,1,MAX_N);showN=nCutoff;syncCutoffDisplay(nCutoff);drawW();}
 slider.value=String(toSlider(nCutoff));slider.addEventListener('input',()=>updateCutoff(powN(+slider.value)));
-// Tap to move / choose a preset and, optionally, automatically trace.
+// Tap or drag to choose the exponent.
 // Drags remain immediate, with no animation until pointer release.
 sCanvas.addEventListener('pointerdown',e=>{
  if(e.button!==0&&e.pointerType==='mouse')return;
  cancelTrace();sCanvas.setPointerCapture(e.pointerId);
- pressS={x:e.clientX,y:e.clientY,moved:false,preset:hitPreset(e)};
- if(!pressS.preset){const p=selectorPoint(e);setExponent(p.re,p.im);}
+ pressS={x:e.clientX,y:e.clientY,moved:false};
+ const p=selectorPoint(e);setExponent(p.re,p.im);
 });
 sCanvas.addEventListener('pointermove',e=>{
  if(!pressS)return;
@@ -463,9 +424,8 @@ function stopSelect(e){
  if(!pressS)return;
  const a=pressS;pressS=null;
  if(e.type==='pointercancel')return;
- if(!a.moved){if(a.preset)setExponent(a.preset.re,a.preset.im);
-   else {const p=selectorPoint(e);setExponent(p.re,p.im);}}
- if($('autoTrace').checked)beginTrace();
+ if(!a.moved){const p=selectorPoint(e);setExponent(p.re,p.im);}
+ if(autoTrace.checked)beginTrace();
 }
 sCanvas.addEventListener('pointerup',stopSelect);sCanvas.addEventListener('pointercancel',stopSelect);
 // W-plane pan, wheel zoom, pinch zoom. No separate controls or play/pause.
@@ -491,12 +451,12 @@ function endOrbitPointer(e){
 orbitCanvas.addEventListener('pointerup',endOrbitPointer);orbitCanvas.addEventListener('pointercancel',endOrbitPointer);
 orbitCanvas.addEventListener('dblclick',()=>{if(traceAnim)cancelTrace();fitCamera();drawW();});
 new ResizeObserver(()=>resizeAll()).observe($('workspace'));
-calculate();updateReadouts();resizeAll();
+calculate();updateReadouts();syncReplayState();resizeAll();
 // Read-only test seam, accessible to local automated browser checks.
 window.__zetaDemo={
-  getState:()=>({s:{...exponent},N:nCutoff,shownN:showN,primes:primePrefix[nCutoff],zeta:{...zeta},sum:{re:Sre[nCutoff],im:Sim[nCutoff]},product:{re:Pre[primePrefix[nCutoff]],im:Pim[primePrefix[nCutoff]]},canvas:{...canvasW},camera:{...wCamera},cameraMode,autoTrace:$('autoTrace').checked,appearance:{dotSize,contrast},animating:!!traceAnim,animationProgress:animProgress}),
+  getState:()=>({s:{...exponent},N:nCutoff,shownN:showN,primes:primePrefix[nCutoff],zeta:{...zeta},sum:{re:Sre[nCutoff],im:Sim[nCutoff]},product:{re:Pre[primePrefix[nCutoff]],im:Pim[primePrefix[nCutoff]]},canvas:{...canvasW},camera:{...wCamera},autoTrace:autoTrace.checked,appearance:{dotSize,dotAlpha,curveAlpha},animating:!!traceAnim,animationProgress:animProgress}),
   setS:(re,im)=>setExponent(re,im),setN:n=>{updateCutoff(n);slider.value=String(toSlider(n));},
-  setMode:setCameraMode,play:beginTrace,stop:cancelTrace,
+  play:beginTrace,stop:cancelTrace,
   cameraPath:()=>calculateFollowPath(nCutoff,{...wCamera}),reset:()=>{fitCamera();drawW();}
  };
 })();
