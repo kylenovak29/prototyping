@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
-<title>The Zeta Landscape — Prototype 1.5</title>
+<title>The Zeta Landscape — Prototype 1.5.1</title>
 <style>
   :root {color-scheme:dark;--ground:#0a1523;--line:#2c4052;--ink:#e7edf6;--dim:#9eb3c8;--bright:#bdd6e9}
   *{box-sizing:border-box}
@@ -178,7 +178,7 @@ function sampleAt(x,t){
 }
 const terrain=new THREE.Group();scene.add(terrain);
 const positions=[],angles=[],height=[],stone=[],opaqueIndices=[],fadeIndices=[];
-// Geometric height is exactly the modulus until y=25; only taller segments are
+// Geometric height is exactly the modulus until y=30; only taller segments are
 // clamped above the entirely transparent region to avoid GPU precision loss.
 for(let j=0;j<NT;j++)for(let i=0;i<NX;i++){
  const id=j*NX+i,logMag=table[id*2],ang=table[id*2+1];
@@ -190,7 +190,7 @@ for(let j=0;j<NT;j++)for(let i=0;i<NX;i++){
 }
 // Extend the detailed mesh with a narrow, adaptive strip along the negative
 // real axis. It shares the same rendering and fading materials as the main mesh.
-// No zeta values are evaluated outside the short corridor to x = -26.5.
+// No zeta values are evaluated outside the short corridor to x = -19.
 const leftStart=height.length;
 for(let j=0;j<LNT;j++)for(let i=0;i<LNX;i++){
  const id=j*LNX+i,logMag=leftTable[2*id],ang=leftTable[2*id+1];
@@ -201,13 +201,10 @@ for(let j=0;j<LNT;j++)for(let i=0;i<LNX;i++){
  const v=clamp((Math.log1p(hh)-.15)/5.4,0,1)*.55;
  stone.push(.56+.24*v,.60+.18*v,.60+.08*v);
 }
-const afterFade=(h)=>{
- const u=clamp((h-FADE_START)/(FADE_END-FADE_START),0,1);
- const e=u*u*(3-2*u);
- // Slightly reduced starting opacity plus a longer eased fade to soften
- // overlapping transparent slopes when viewed obliquely across a valley.
- return 0.90*(1-e);
-};
+// Opaque and fade meshes meet at exactly the same height (FADE_START).
+// Fade opacity is evaluated per fragment, not stored at the vertices. This
+// guarantees alpha=1 at the join, avoids a hard 0.9 opacity jump, and yields
+// a smoother transition on the coarser Overview triangles.
 const splitCache=new Map();
 function cutEdge(a,b){
  const key=a<b?a+','+b:b+','+a;
@@ -251,8 +248,8 @@ const fullGeo=new THREE.BufferGeometry();fullGeo.setAttribute('position',posAttr
 const normals=fullGeo.getAttribute('normal');
 const colored=new Float32Array(totalVertices*4),matte=new Float32Array(totalVertices*4);
 for(let i=0;i<totalVertices;i++){
- const a=afterFade(height[i]);colored[4*i]=1;colored[4*i+1]=1;colored[4*i+2]=1;colored[4*i+3]=a;
- matte[4*i]=stone[3*i];matte[4*i+1]=stone[3*i+1];matte[4*i+2]=stone[3*i+2];matte[4*i+3]=a;
+ colored[4*i]=1;colored[4*i+1]=1;colored[4*i+2]=1;colored[4*i+3]=1;
+ matte[4*i]=stone[3*i];matte[4*i+1]=stone[3*i+1];matte[4*i+2]=stone[3*i+2];matte[4*i+3]=1;
 }
 function makeSurface(indices,transparent){
  const geometry=new THREE.BufferGeometry();
@@ -261,15 +258,33 @@ function makeSurface(indices,transparent){
  const phaseColors=new THREE.Float32BufferAttribute(colored,4),stoneColors=new THREE.Float32BufferAttribute(matte,4);
  geometry.setAttribute('color',phaseColors);geometry.setIndex(indices);
  const config={vertexColors:true,side:THREE.DoubleSide,roughness:.91,metalness:0,transparent,depthWrite:!transparent,forceSinglePass:transparent};
+ // The low terrain is truly opaque. Only the separately clipped upper
+ // terrain uses blending. Both materials share the same vertex normals.
+ // Compute the fade in the fragment shader from geometric y rather than
+ // interpolated per-vertex alpha (important for the coarse Overview LOD).
+ const fadeChunk=transparent?
+  `diffuseColor.a *= 1.0 - smoothstep(${FADE_START.toFixed(1)}, ${FADE_END.toFixed(1)}, vTerrainHeight);`:
+  '';
  const coloredMat=new THREE.MeshStandardMaterial(config);
  coloredMat.onBeforeCompile=shader=>{
-  shader.vertexShader=shader.vertexShader.replace('#include <common>',`#include <common>\nattribute vec2 phaseUnit;\nvarying vec2 vPhaseUnit;`)
-   .replace('#include <begin_vertex>',`#include <begin_vertex>\nvPhaseUnit=phaseUnit;`);
-  shader.fragmentShader=shader.fragmentShader.replace('#include <common>',`#include <common>\nvarying vec2 vPhaseUnit;\nvec3 phaseRGB(vec2 v){\n  float hue=fract(atan(v.y,v.x)/6.283185307179586+1.0);\n  vec3 h=clamp(abs(mod(hue*6.0+vec3(0.0,4.0,2.0),6.0)-3.0)-1.0,0.0,1.0);\n  vec3 srgb=vec3(0.1674)+vec3(.7452)*h;\n  vec3 low=srgb/12.92;vec3 high=pow((srgb+0.055)/1.055,vec3(2.4));\n  return mix(low,high,step(vec3(0.04045),srgb));\n}`)
-   .replace('#include <color_fragment>',`#include <color_fragment>\ndiffuseColor.rgb=phaseRGB(vPhaseUnit);`);
+  shader.vertexShader=shader.vertexShader
+   .replace('#include <common>',`#include <common>\nattribute vec2 phaseUnit;\nvarying vec2 vPhaseUnit;\nvarying float vTerrainHeight;`)
+   .replace('#include <begin_vertex>',`#include <begin_vertex>\nvPhaseUnit=phaseUnit;\nvTerrainHeight=position.y;`);
+  shader.fragmentShader=shader.fragmentShader
+   .replace('#include <common>',`#include <common>\nvarying vec2 vPhaseUnit;\nvarying float vTerrainHeight;\nvec3 phaseRGB(vec2 v){\n  float hue=fract(atan(v.y,v.x)/6.283185307179586+1.0);\n  vec3 h=clamp(abs(mod(hue*6.0+vec3(0.0,4.0,2.0),6.0)-3.0)-1.0,0.0,1.0);\n  vec3 srgb=vec3(0.1674)+vec3(.7452)*h;\n  vec3 low=srgb/12.92;vec3 high=pow((srgb+0.055)/1.055,vec3(2.4));\n  return mix(low,high,step(vec3(0.04045),srgb));\n}`)
+   .replace('#include <color_fragment>',`#include <color_fragment>\ndiffuseColor.rgb=phaseRGB(vPhaseUnit);\n${fadeChunk}`);
  };
- coloredMat.customProgramCacheKey=()=> 'zeta-phase-original-v5';
+ coloredMat.customProgramCacheKey=()=> `zeta-phase-fragment-fade-v1-${transparent?'fading':'solid'}`;
  const stoneMat=new THREE.MeshStandardMaterial(config);
+ stoneMat.onBeforeCompile=shader=>{
+  shader.vertexShader=shader.vertexShader
+   .replace('#include <common>',`#include <common>\nvarying float vTerrainHeight;`)
+   .replace('#include <begin_vertex>',`#include <begin_vertex>\nvTerrainHeight=position.y;`);
+  shader.fragmentShader=shader.fragmentShader
+   .replace('#include <common>',`#include <common>\nvarying float vTerrainHeight;`)
+   .replace('#include <color_fragment>',`#include <color_fragment>\n${fadeChunk}`);
+ };
+ stoneMat.customProgramCacheKey=()=> `zeta-stone-fragment-fade-v1-${transparent?'fading':'solid'}`;
  const mesh=new THREE.Mesh(geometry,coloredMat);mesh.frustumCulled=false;
  mesh.renderOrder=transparent?1:0;terrain.add(mesh);
  return {mesh,phaseColors,stoneColors,coloredMat,stoneMat};
@@ -277,7 +292,7 @@ function makeSurface(indices,transparent){
 const surfaces=[makeSurface(opaqueIndices,false),makeSurface(fadeIndices,true)];
 fullGeo.dispose();
 // Overview draws the same *two-part* terrain as Ground: an opaque region
-// below 15 and a separately blended transparent region between 15 and 25.
+// below 12 and a separately blended transparent region between 12 and 30.
 // This eliminates alphaTest/alphaToCoverage (which caused hard triangle edges)
 // and preserves a continuous fade in both view modes.
 function overviewIndices(axis,step,features){
@@ -334,7 +349,7 @@ function splitOverviewTriangle(a,b,c,above,dest){
  for(let k=1;k+1<poly.length;k++)dest.push(poly[0],poly[k],poly[k+1]);
 }
 addOverviewPatch(X,T,NX,0,4,[-8,-6,-4,-2,.5,1],[0,...DATA.zeros]);
-// Preserve the exceptionally narrow far-left zero basins even in Overview.
+// Retain extra Overview resolution at the left-side basins and ridges.
 addOverviewPatch(LX,LT,LNX,leftStart,2,[-18,-17,-16,-15,-14,-13,-12,-11,-10],[0]);
 const ovPosAttr=new THREE.Float32BufferAttribute(ovPositions,3);
 const ovPhaseAttr=new THREE.Float32BufferAttribute(ovPhase,2);
@@ -346,9 +361,8 @@ const ovNormalAttr=ovFullGeo.getAttribute('normal');
 const ovColorData=new Float32Array(ovHeight.length*4);
 const ovStoneData=new Float32Array(ovHeight.length*4);
 for(let i=0;i<ovHeight.length;i++){
- const alpha=afterFade(ovHeight[i]);
- ovColorData.set([1,1,1,alpha],4*i);
- ovStoneData.set([ovStoneRGB[3*i],ovStoneRGB[3*i+1],ovStoneRGB[3*i+2],alpha],4*i);
+ ovColorData.set([1,1,1,1],4*i);
+ ovStoneData.set([ovStoneRGB[3*i],ovStoneRGB[3*i+1],ovStoneRGB[3*i+2],1],4*i);
 }
 const overviewPhaseColor=new THREE.Float32BufferAttribute(ovColorData,4);
 const overviewStoneColor=new THREE.Float32BufferAttribute(ovStoneData,4);
