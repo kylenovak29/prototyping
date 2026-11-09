@@ -1,0 +1,513 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Polygamma Functions · Interactive Explorer</title><style>html,body{margin:0;min-height:100%;background:#0c141e;color:#e9eef3}body{box-sizing:border-box;padding:clamp(8px,2.5vw,30px)}#app{max-width:990px;margin:0 auto}</style></head><body><main id="app"></main><script>
+// Polygamma gallery v1 (Observable 2.0). One cell; no external packages.
+// Special Functions Numerical Core v0.1: no external dependencies.
+// Analytic log Gamma on C \ (-infinity,0], digamma, polygamma m=1..3.
+// Hurwitz zeta supported at integer s = 2,3,4 only in this prototype.
+// All functions return {re, im}. Poles and the logGamma branch cut
+// return a typed {kind:'pole'|'branch-cut'} from evaluateSpecial.
+const SpecialFunctions = (() => {
+  const B = [1/6,-1/30,1/42,-1/30,5/66,-691/2730,7/6,-3617/510];
+  const EM = B.map((b,j) => {let fact=1;for(let k=2;k<=2*j+2;k++)fact*=k;return b/fact;});
+  const C = (re,im=0)=>({re,im});
+  const add = (a,b)=>C(a.re+b.re,a.im+b.im);
+  const sub = (a,b)=>C(a.re-b.re,a.im-b.im);
+  const scale = (a,k)=>C(k*a.re,k*a.im);
+  const mul = (a,b)=>C(a.re*b.re-a.im*b.im,a.re*b.im+a.im*b.re);
+  function inv(a){const d=a.re*a.re+a.im*a.im;return C(a.re/d,-a.im/d);}
+  const log = a=>C(Math.log(Math.hypot(a.re,a.im)),Math.atan2(a.im,a.re));
+  const powi = (a,n)=>{let p=C(1),v=a;for(let i=0;i<n;i++){p=mul(p,v);}return p;};
+  function shiftCount(z){return Math.max(0,Math.ceil(18-z.re));}
+  function logGamma(z){
+    const N=shiftCount(z),w=C(z.re+N,z.im),L=log(w),wi=inv(w),wi2=mul(wi,wi);
+    let ans=add(sub(mul(C(w.re-.5,w.im),L),w), C(.5*Math.log(2*Math.PI)));
+    let p=wi;
+    for(let j=0;j<8;j++){
+      const n=2*j+2;
+      ans=add(ans,scale(p,B[j]/(n*(n-1))));
+      p=mul(p,wi2);
+    }
+    for(let k=0;k<N;k++)ans=sub(ans,log(C(z.re+k,z.im)));
+    return ans;
+  }
+  function digamma(z){
+    const N=shiftCount(z),w=C(z.re+N,z.im),wi=inv(w),wi2=mul(wi,wi);
+    let ans=sub(log(w),scale(wi,.5)),p=wi2;
+    for(let j=0;j<8;j++){
+      ans=sub(ans,scale(p,B[j]/(2*j+2)));
+      p=mul(p,wi2);
+    }
+    for(let k=0;k<N;k++)ans=sub(ans,inv(C(z.re+k,z.im)));
+    return ans;
+  }
+  function hurwitzZetaInteger(s,z){
+    if(![2,3,4].includes(s)) throw Error('This prototype implements Hurwitz zeta for s=2, 3, 4.');
+    const N=shiftCount(z),w=C(z.re+N,z.im),wi=inv(w),wi2=mul(wi,wi);
+    let ans=add(scale(powi(wi,s-1),1/(s-1)),scale(powi(wi,s),.5));
+    let power=powi(wi,s+1),rising=s;
+    for(let j=1;j<=8;j++){
+      ans=add(ans,scale(power,EM[j-1]*rising));
+      power=mul(power,wi2); rising*=(s+2*j-1)*(s+2*j);
+    }
+    for(let k=0;k<N;k++){
+      ans=add(ans,powi(inv(C(z.re+k,z.im)),s));
+    }
+    return ans;
+  }
+  function polygamma(m,z){
+    if(m===0)return digamma(z);
+    if(![1,2,3].includes(m))throw Error('Supported orders are 0 through 3.');
+    const fac=[0,1,-2,6][m];
+    return scale(hurwitzZetaInteger(m+1,z),fac);
+  }
+  function evaluateSpecial(kind,z){
+    // kind = -1 for logGamma; 0..3 for polygamma
+    const nearest=Math.round(z.re);
+    const isPole=nearest<=0 && Math.abs(z.re-nearest)<=1e-13 && Math.abs(z.im)<=1e-13;
+    if(isPole)return {kind:'pole'};
+    if(kind===-1 && z.re<=0 && Math.abs(z.im)<=1e-13)return {kind:'branch-cut'};
+    const value=kind===-1?logGamma(z):polygamma(kind,z);
+    return {kind:'finite',...value,logAbs:Math.log(Math.hypot(value.re,value.im)),arg:Math.atan2(value.im,value.re)};
+  }
+  return {C,add,sub,scale,mul,inv,log,powi,logGamma,digamma,polygamma,hurwitzZetaInteger,evaluateSpecial};
+})();
+
+// Polygamma explorer v1 — Observable 2.0 / standalone browser.
+// Relies only on the SpecialFunctions object embedded above; no CDN dependencies.
+{
+ const root = document.createElement('section');
+ root.className='pg-explorer';
+ root.innerHTML=`<style>
+ .pg-explorer{--text:#e8eef3;--muted:#9eafbd;max-width:990px;margin:auto;background:radial-gradient(ellipse at 44% -35%,#2a3a48 0%,#1b2733 53%,#121b26 100%);border-radius:18px;padding:clamp(12px,2.7vw,26px);font:14px/1.5 system-ui,-apple-system,'Segoe UI',sans-serif;color:var(--text);box-sizing:border-box;box-shadow:0 16px 60px #0003}
+ .pg-explorer *{box-sizing:border-box}
+ .pg-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:13px}
+ .pg-head h2{font-size:clamp(20px,2.6vw,27px);letter-spacing:-.025em;line-height:1.15;margin:0;font-weight:640}
+ .pg-head span{color:var(--muted);font-size:12px}
+ .pg-functions{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:11px}
+ .pg-explorer button{font:inherit;cursor:pointer}
+ .pg-function{background:#ffffff09;color:#d5dfe6;border:1px solid #e4f1ff23;border-radius:9px;min-height:37px;padding:6px 17px;line-height:1.05;font-size:15px;transition:background .13s,border-color .13s}
+ .pg-function:hover{background:#ffffff17}
+ .pg-function[aria-pressed=true]{background:#e6eced;color:#192632;border-color:#e6eced;font-weight:630;box-shadow:0 2px 7px #0003}
+ .pg-explorer :is(button,canvas):focus-visible{outline:2px solid #98d9cc;outline-offset:2px}
+ .pg-frame{width:100%;aspect-ratio:1.48;position:relative;overflow:hidden;border:1px solid #eaf5ff23;border-radius:12px;background:#777d88;isolation:isolate}
+ .pg-canvas{display:block;width:100%;height:100%;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;cursor:crosshair;outline-offset:-3px}
+ .pg-guides{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:hidden}
+ .pg-pin{position:absolute;width:13px;height:13px;border:2px solid #fff;border-radius:50%;background:#16283477;box-shadow:0 0 0 1px #14222a,0 1px 5px #000a;pointer-events:none;transform:translate(-50%,-50%);display:none}
+ .pg-bottom{display:flex;gap:12px;align-items:center;justify-content:space-between;padding:8px 1px 0}
+ .pg-description{color:#c5d0d8;font-size:12px;line-height:1.3;flex:1}
+ .pg-zoom{white-space:nowrap;min-height:30px;padding:4px 11px;border-radius:8px;background:#ffffff10;color:#dfebf2;border:1px solid #e4f1ff24;font-size:12px;display:inline-flex;align-items:center;gap:8px}
+ .pg-zoom b{font-variant-numeric:tabular-nums}.pg-zoom span{opacity:.55;font-size:15px}
+ .pg-probe{margin-top:9px;border-top:1px solid #dce9ef21;padding:9px 2px 0;display:none;align-items:start;justify-content:space-between;gap:12px}
+ .pg-values{display:grid;grid-template-columns:minmax(30px,auto) minmax(0,1fr);gap:2px 10px;min-width:0;font:12px/1.55 ui-monospace,SFMono-Regular,Consolas,'Liberation Mono',monospace;color:#dce6ec;white-space:normal;overflow-wrap:anywhere}
+ .pg-values .pg-k{color:#90a9b9}
+ .pg-close{border:0;background:transparent;color:#93a8b6;font-size:18px;line-height:1;min-width:25px;min-height:25px}
+ .pg-key{margin:10px auto 0;max-width:410px}
+ .pg-colorbar{display:block;width:100%;height:9px;border-radius:10px;border:1px solid #ffffff24}
+ .pg-key-labels{display:flex;justify-content:space-between;font-size:10px;color:#b6c4ce;margin-top:3px}
+ .pg-help{margin:9px 0 0;text-align:center;color:#91a4b3;font-size:11px}
+ @media(max-width:700px){.pg-explorer{border-radius:13px}.pg-head{display:block}.pg-head span{display:block;margin-top:2px}.pg-function{padding:8px 13px;font-size:14px;min-height:40px}.pg-functions{gap:4px}.pg-frame{aspect-ratio:.94}.pg-description{font-size:11px}.pg-help{font-size:10px}.pg-values{font-size:11px}}
+ @media(prefers-reduced-motion:reduce){.pg-function{transition:none}}
+ </style>
+ <header class="pg-head"><h2>Polygamma functions</h2><span>Successive derivatives of log Γ(z)</span></header>
+ <nav class="pg-functions" role="group" aria-label="Choose a special function">
+  <button type="button" class="pg-function" data-kind="-1" aria-pressed="false">log Γ</button>
+  <button type="button" class="pg-function" data-kind="0" aria-pressed="true">ψ</button>
+  <button type="button" class="pg-function" data-kind="1" aria-pressed="false">ψ′</button>
+  <button type="button" class="pg-function" data-kind="2" aria-pressed="false">ψ″</button>
+  <button type="button" class="pg-function" data-kind="3" aria-pressed="false">ψ‴</button>
+ </nav>
+ <div class="pg-frame">
+  <canvas class="pg-canvas" tabindex="0" role="img" aria-label="Domain coloring of the selected polygamma function. Drag to pan, pinch or scroll to zoom, double-tap to zoom in, and tap to inspect complex values."></canvas>
+  <svg class="pg-guides" aria-hidden="true"></svg>
+  <span class="pg-pin" aria-hidden="true"></span>
+ </div>
+ <div class="pg-bottom"><span class="pg-description" aria-live="polite"></span><button class="pg-zoom" type="button" title="Reset view" aria-label="Reset view"><b>1×</b><span>↺</span></button></div>
+ <div class="pg-probe" aria-live="polite"><div class="pg-values"><span class="pg-k">z</span><span class="pg-z"></span><span class="pg-k">f(z)</span><span class="pg-f"></span></div><button class="pg-close" type="button" title="Clear point selection" aria-label="Clear point selection">×</button></div>
+ <div class="pg-key"><canvas class="pg-colorbar" width="410" height="11" aria-label="Phase-color key"></canvas><div class="pg-key-labels"><span>+1</span><span>+i</span><span>−1</span><span>−i</span><span>+1</span></div></div>
+ <p class="pg-help">Hue: phase · Light/dark bands: log modulus · Drag, pinch, or double-tap · Tap to inspect</p>`;
+ if(typeof display==='function')display(root);
+ else (document.getElementById('app')||document.body).appendChild(root);
+
+ const canvas=root.querySelector('.pg-canvas');
+ const frameEl=root.querySelector('.pg-frame');
+ const svg=root.querySelector('.pg-guides');
+ const pin=root.querySelector('.pg-pin');
+ const probeEl=root.querySelector('.pg-probe');
+ const zEl=root.querySelector('.pg-z'),fEl=root.querySelector('.pg-f');
+ const zoomText=root.querySelector('.pg-zoom b');
+ const description=root.querySelector('.pg-description');
+ const buttons=[...root.querySelectorAll('.pg-function')];
+ const HALF_HEIGHT=3.05, LOG_PERIOD=Math.log(7), MAX_ZOOM=3;
+ const LIMITS={xmin:-10,xmax:5,ymin:-6,ymax:6};
+ const state={kind:0, centerX:-1.5,centerY:0,zoom:0,probe:null};
+ const descriptions={
+  '-1':'log Γ(z) · analytic branch cut on the nonpositive real axis',
+  '0':'Digamma · simple poles at 0, −1, −2, …',
+  '1':'Trigamma · double poles at the same locations',
+  '2':'Tetragamma · triple poles at the same locations',
+  '3':'Pentagamma · fourth-order poles at the same locations'
+ };
+ const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+ const frac=x=>x-Math.floor(x);
+ const smoothstep=(a,b,x)=>{const t=clamp((x-a)/(b-a),0,1);return t*t*(3-2*t);};
+ let gl=null,program=null,glReady=false,ctx=null,raf=0,settleTimer=0,anim=0,stopped=false,lowRes=false,fbToken=0;
+
+ // Preserve the four-phase OKLab palette used in the singularities gallery.
+ function rgbToLab(hex){
+  const rgb=[1,3,5].map(i=>parseInt(hex.slice(i,i+2),16)/255).map(v=>v<=.04045?v/12.92:Math.pow((v+.055)/1.055,2.4));
+  const [r,g,b]=rgb;
+  const l=Math.cbrt(.4122214708*r+.5363325363*g+.0514459929*b);
+  const m=Math.cbrt(.2119034982*r+.6806995451*g+.1073969566*b);
+  const s=Math.cbrt(.0883024619*r+.2817188376*g+.6299787005*b);
+  return [.2104542553*l+.793617785*m-.0040720468*s,1.9779984951*l-2.4285922050*m+.4505937099*s,.0259040371*l+.7827717662*m-.8086757660*s];
+ }
+ function labToRgb(L,a,b){
+  const l=(L+.3963377774*a+.2158037573*b)**3;
+  const m=(L-.1055613458*a-.0638541728*b)**3;
+  const s=(L-.0894841775*a-1.2914855480*b)**3;
+  return [4.0767416621*l-3.3077115913*m+.2309699292*s,-1.2684380046*l+2.6097574011*m-.3413193965*s,-.0041960863*l-.7034186147*m+1.7076147010*s].map(v=>{v=clamp(v,0,1);return Math.round(255*(v<=.0031308?12.92*v:1.055*v**(1/2.4)-.055));});
+ }
+ const anchors=['#f3c45b','#37c7a9','#6d74eb','#e86cb4'].map(rgbToLab);
+ const palette=new Uint8Array(2048*4);
+ for(let i=0;i<2048;i++){
+  const t=i/2048*4,j=Math.floor(t),u=t-j,a=anchors[j%4],b=anchors[(j+1)%4];
+  const rgb=labToRgb(a[0]*(1-u)+b[0]*u,a[1]*(1-u)+b[1]*u,a[2]*(1-u)+b[2]*u);
+  palette.set([...rgb,255],i*4);
+ }
+ function paletteSample(phi){const p=Math.floor(frac(phi/(2*Math.PI))*2048)*4;return [palette[p],palette[p+1],palette[p+2]];}
+ {
+  const bar=root.querySelector('.pg-colorbar'),g=bar.getContext('2d'),w=bar.width,h=bar.height,d=g.createImageData(w,h);
+  for(let x=0;x<w;x++)for(let y=0;y<h;y++){
+   const a=Math.floor((x/(w-1))%1*2048)*4,p=4*(y*w+x);
+   d.data[p]=palette[a];d.data[p+1]=palette[a+1];d.data[p+2]=palette[a+2];d.data[p+3]=255;
+  }
+  g.putImageData(d,0,0);
+ }
+ const vs=`#version 300 es
+ in vec2 a_vertex;
+ void main(){gl_Position=vec4(a_vertex,0.0,1.0);}`;
+ const fs=`#version 300 es
+ precision highp float;
+ uniform vec2 u_resolution, u_local_center;
+ uniform float u_pitch, u_log_period;
+ uniform int u_anchor, u_N, u_kind;
+ uniform sampler2D u_palette;
+ out vec4 outColor;
+ const float PI=3.141592653589793, TAU=6.283185307179586;
+ const float B[8]=float[8](0.16666666666667,-0.033333333333333,0.023809523809524,-0.033333333333333,0.075757575757576,-0.25311355311355,1.16666666666667,-7.0921568627451);
+ const float E[8]=float[8](0.083333333333333,-0.001388888888889,0.000033068783069,-0.0000008267195767,0.000000020876756,-0.000000000528,0.00000000001338,-0.000000000000339);
+ vec2 cmul(vec2 a, vec2 b){return vec2(a.x*b.x-a.y*b.y,a.x*b.y+a.y*b.x);}
+ vec2 cinv(vec2 a){float d=max(dot(a,a),1.e-28);return vec2(a.x,-a.y)/d;}
+ vec2 clogc(vec2 a){return vec2(log(max(length(a),1.e-20)),atan(a.y,a.x));}
+ vec2 ipow(vec2 a,int n){vec2 p=vec2(1.0,0.0);for(int i=0;i<5;i++){if(i>=n)break;p=cmul(p,a);}return p;}
+ vec2 functionValue(vec2 z){
+  vec2 w=z+vec2(float(u_anchor+u_N),0.0),wi=cinv(w),w2=cmul(wi,wi);
+  vec2 outVal=vec2(0.0);
+  if(u_kind==-1){
+   outVal=cmul(w-vec2(.5,0.0),clogc(w))-w+vec2(.9189385332046727,0.0);
+   vec2 power=wi;
+   for(int j=0;j<8;j++){float n=float(2*j+2);outVal+=B[j]/(n*(n-1.0))*power;power=cmul(power,w2);}
+  }else if(u_kind==0){
+   outVal=clogc(w)-.5*wi;
+   vec2 power=w2;
+   for(int j=0;j<8;j++){outVal-=B[j]/float(2*j+2)*power;power=cmul(power,w2);}
+  }else{
+   int s=u_kind+1;
+   outVal=ipow(wi,s-1)/float(s-1)+.5*ipow(wi,s);
+   float rising=float(s);
+   vec2 power=ipow(wi,s+1);
+   for(int j=1;j<=8;j++){
+    outVal+=E[j-1]*rising*power;
+    power=cmul(power,w2);
+    rising*=float((s+2*j-1)*(s+2*j));
+   }
+  }
+  for(int k=0;k<48;k++){
+   if(k>=u_N)break;
+   vec2 term=z+vec2(float(u_anchor+k),0.0);
+   if(u_kind==-1)outVal-=clogc(term);
+   else if(u_kind==0)outVal-=cinv(term);
+   else outVal+=ipow(cinv(term),u_kind+1);
+  }
+  if(u_kind==2)outVal*=-2.0;
+  if(u_kind==3)outVal*=6.0;
+  return outVal;
+ }
+ vec3 shade(vec2 z){
+  vec2 f=functionValue(z);
+  float phi=atan(f.y,f.x),logmod=log(max(length(f),1.e-20));
+  float saw=fract(logmod/u_log_period+.5);
+  float tone=1.09-.36*saw;
+  float zz=z.x+float(u_anchor);
+  float nearest=clamp(-floor(zz+.5),0.0,12.0);
+  vec2 dz=z+vec2(float(u_anchor)+nearest,0.0);
+  float distancePole=max(length(dz),1.e-8);
+  float dphi=u_pitch*max(1.0,float(u_kind+1))/distancePole;
+  float clear=1.0-smoothstep(.75,2.4,dphi);
+  // logGamma has logarithmic rather than pole-shaped singularities.
+  if(u_kind==-1)clear=1.0;
+  vec3 col=texture(u_palette,vec2(fract(phi/TAU),.5)).rgb*tone;
+  col=mix(vec3(.57,.60,.64),col,clear);
+  return clamp(col,0.0,1.0);
+ }
+ void main(){
+  vec2 z=u_local_center+(gl_FragCoord.xy-.5*u_resolution)*u_pitch;
+  outColor=vec4(shade(z),1.0);
+ }`;
+ let u={};
+ function makeShader(g,type,src){const s=g.createShader(type);g.shaderSource(s,src);g.compileShader(s);if(!g.getShaderParameter(s,g.COMPILE_STATUS))throw Error(g.getShaderInfoLog(s));return s;}
+ function initGL(){
+  try{
+   const g=canvas.getContext('webgl2',{alpha:false,antialias:false,depth:false,stencil:false,powerPreference:'high-performance'});
+   if(!g)return false;
+   const p=g.createProgram(),v=makeShader(g,g.VERTEX_SHADER,vs),f=makeShader(g,g.FRAGMENT_SHADER,fs);
+   g.attachShader(p,v);g.attachShader(p,f);g.linkProgram(p);
+   if(!g.getProgramParameter(p,g.LINK_STATUS))throw Error(g.getProgramInfoLog(p));
+   g.deleteShader(v);g.deleteShader(f);g.useProgram(p);
+   const buf=g.createBuffer();g.bindBuffer(g.ARRAY_BUFFER,buf);g.bufferData(g.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,1,1]),g.STATIC_DRAW);
+   const loc=g.getAttribLocation(p,'a_vertex');g.enableVertexAttribArray(loc);g.vertexAttribPointer(loc,2,g.FLOAT,false,0,0);
+   const tex=g.createTexture();g.activeTexture(g.TEXTURE0);g.bindTexture(g.TEXTURE_2D,tex);
+   g.texImage2D(g.TEXTURE_2D,0,g.RGBA,2048,1,0,g.RGBA,g.UNSIGNED_BYTE,palette);
+   g.texParameteri(g.TEXTURE_2D,g.TEXTURE_MIN_FILTER,g.LINEAR);g.texParameteri(g.TEXTURE_2D,g.TEXTURE_MAG_FILTER,g.LINEAR);
+   g.texParameteri(g.TEXTURE_2D,g.TEXTURE_WRAP_S,g.REPEAT);g.texParameteri(g.TEXTURE_2D,g.TEXTURE_WRAP_T,g.CLAMP_TO_EDGE);
+   u={};for(const name of ['resolution','local_center','pitch','log_period','anchor','N','kind','palette'])u[name]=g.getUniformLocation(p,'u_'+name);
+   g.uniform1i(u.palette,0);
+   gl=g;program=p;glReady=true;return true;
+  }catch(err){console.warn('WebGL unavailable, using progressive Canvas rendering',err);return false;}
+ }
+ function sizeCSS(){const r=canvas.getBoundingClientRect();return {w:r.width,h:r.height};}
+ function pitchCSS(){return 2*HALF_HEIGHT*Math.pow(10,-state.zoom)/sizeCSS().h;}
+ function pointAt(px,py,s=state){const {w,h}=sizeCSS(),pitch=2*HALF_HEIGHT*Math.pow(10,-s.zoom)/h;return {re:s.centerX+(px-w/2)*pitch,im:s.centerY+(h/2-py)*pitch};}
+ function positionOf(z){const {w,h}=sizeCSS(),pitch=pitchCSS();return {x:w/2+(z.re-state.centerX)/pitch,y:h/2-(z.im-state.centerY)/pitch};}
+ function clampCenter(){
+  const {w,h}=sizeCSS(),hy=HALF_HEIGHT*Math.pow(10,-state.zoom),hx=hy*w/h;
+  const minX=LIMITS.xmin+hx,maxX=LIMITS.xmax-hx,minY=LIMITS.ymin+hy,maxY=LIMITS.ymax-hy;
+  state.centerX=clamp(state.centerX,Math.min(minX,maxX),Math.max(minX,maxX));
+  state.centerY=clamp(state.centerY,Math.min(minY,maxY),Math.max(minY,maxY));
+ }
+ function setView(zoom,worldAnchor,px,py){
+  state.zoom=clamp(zoom,0,MAX_ZOOM);
+  const {w,h}=sizeCSS(),pitch=2*HALF_HEIGHT*Math.pow(10,-state.zoom)/h;
+  state.centerX=worldAnchor.re-(px-w/2)*pitch;
+  state.centerY=worldAnchor.im+(py-h/2)*pitch;
+  clampCenter();interact();
+ }
+ function interact(){
+  lowRes=true;
+  clearTimeout(settleTimer);
+  settleTimer=setTimeout(()=>{lowRes=false;schedule();},170);
+  schedule();
+ }
+ function drawGuides(){
+  const {w,h}=sizeCSS(),q=pitchCSS();if(w<1||h<1)return;
+  let html='';
+  const ay=h/2+state.centerY/q;
+  if(ay>-8&&ay<h+8){html+=`<line x1="0" y1="${ay.toFixed(2)}" x2="${w}" y2="${ay.toFixed(2)}" stroke="#f1f4fc" stroke-opacity=".20" stroke-width=".75"/>`;}
+  const xlo=state.centerX-w*q/2,xhi=state.centerX+w*q/2;
+  const lo=Math.max(-10,Math.ceil(xlo)),hi=Math.min(0,Math.floor(xhi));
+  let step=1;
+  if(q>0)step=Math.max(1,Math.ceil(34*q));
+  for(let n=lo;n<=hi;n++){
+   if((Math.abs(n)%step)!==0)continue;
+   const px=w/2+(n-state.centerX)/q;
+   if(px<8||px>w-8||ay<8||ay>h-14)continue;
+   html+=`<circle cx="${px.toFixed(2)}" cy="${ay.toFixed(2)}" r="2" fill="#152632" stroke="#ffffff" stroke-opacity=".65" stroke-width=".85"/>`;
+   html+=`<text x="${(px+4).toFixed(2)}" y="${(ay+13).toFixed(2)}" font-size="11" fill="#f7fafc" fill-opacity=".7" stroke="#283846" stroke-width="1.6" paint-order="stroke">${n===0?'0':'−'+Math.abs(n)}</text>`;
+  }
+  if(state.kind===-1 && ay>-1&&ay<h+1){
+   const limit=Math.min(w,w/2+(-state.centerX)/q);
+   if(limit>0)html+=`<line x1="0" y1="${ay.toFixed(2)}" x2="${limit}" y2="${ay.toFixed(2)}" stroke="#fff0c4" stroke-opacity=".8" stroke-width="1.7" stroke-dasharray="5 4"/>`;
+  }
+  svg.setAttribute('viewBox',`0 0 ${w} ${h}`);svg.innerHTML=html;
+ }
+ function showMarker(){
+  if(!state.probe){pin.style.display='none';return;}
+  const pt=positionOf(state.probe),{w,h}=sizeCSS();
+  if(pt.x<-5||pt.y<-5||pt.x>w+5||pt.y>h+5){pin.style.display='none';return;}
+  pin.style.display='block';pin.style.left=`${pt.x}px`;pin.style.top=`${pt.y}px`;
+ }
+ function fmtReal(v){if(!Number.isFinite(v))return String(v);if(v===0)return '0';const a=Math.abs(v);if(a>=1e5||a<1e-4)return v.toExponential(4);return Number(v.toPrecision(7)).toString();}
+ function fmtComplex(z){
+  const a=fmtReal(z.re),b=fmtReal(Math.abs(z.im));
+  return `${a} ${z.im<0?'−':'+'} ${b}i`;
+ }
+ function updateProbe(){
+  showMarker();if(!state.probe){probeEl.style.display='none';return;}
+  probeEl.style.display='flex';
+  zEl.textContent=fmtComplex(state.probe);
+  const val=SpecialFunctions.evaluateSpecial(state.kind,state.probe);
+  if(val.kind==='pole'){fEl.textContent='Pole (undefined)';return;}
+  if(val.kind==='branch-cut'){fEl.textContent='On the selected log Γ branch cut';return;}
+  const magnitude=Math.hypot(val.re,val.im);
+  if(magnitude<1e-5||magnitude>1e6){
+   if(magnitude===0){fEl.textContent='0';return;}
+   fEl.textContent=`|f| = 10^(${fmtReal(val.logAbs/Math.LN10)}), arg = ${fmtReal(val.arg)} rad`;
+  }else fEl.textContent=fmtComplex(val);
+ }
+ function updateLabels(){zoomText.textContent=(state.zoom>=2.999?'1,000':Math.pow(10,state.zoom)<10?Math.pow(10,state.zoom).toFixed(state.zoom<.04?0:1):Math.round(Math.pow(10,state.zoom)).toLocaleString('en-US'))+'×';description.textContent=descriptions[state.kind];}
+ function resize(){
+  const {w:cssW,h:cssH}=sizeCSS();if(cssW<1||cssH<1)return false;
+  const maxW=glReady?(lowRes?540:1220):(lowRes?270:550),maxH=glReady?(lowRes?530:900):(lowRes?290:590);
+  const dpr=Math.min(window.devicePixelRatio||1,lowRes?1.0:1.55);
+  let w=cssW*dpr,h=cssH*dpr,scale=Math.min(1,maxW/w,maxH/h);
+  w=Math.max(2,Math.round(w*scale));h=Math.max(2,Math.round(h*scale));
+  if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h;return true;}
+  return false;
+ }
+ function shadeCPU(x,y,pitch){
+  const val=SpecialFunctions.evaluateSpecial(state.kind,{re:x,im:y});
+  if(val.kind!=='finite')return [108,110,120];
+  const saw=frac(clamp(val.logAbs,-200,200)/LOG_PERIOD+.5),tone=1.09-.36*saw,base=paletteSample(val.arg);
+  const k=Math.round(-x),dist=Math.hypot(x+clamp(k,0,10),y);
+  const delta=pitch*Math.max(1,state.kind+1)/Math.max(dist,1e-8);
+  const a=state.kind===-1?1:1-smoothstep(.75,2.4,delta);
+  return base.map((v,i)=>v*tone*a+[145,153,163][i]*(1-a));
+ }
+ function renderCPU(){
+  const serial=++fbToken;
+  const g=ctx||(ctx=canvas.getContext('2d',{alpha:false}));
+  const w=canvas.width,h=canvas.height,pitch=2*HALF_HEIGHT*Math.pow(10,-state.zoom)/h;
+  const img=g.createImageData(w,h),data=img.data;
+  let yy=0;
+  function rows(){
+   if(stopped||serial!==fbToken)return;
+   const t0=performance.now(),yStart=yy;
+   while(yy<h && performance.now()-t0<12){
+    for(let xx=0;xx<w;xx++){
+     const x=state.centerX+(xx+.5-w/2)*pitch;
+     const y=state.centerY+(h/2-yy-.5)*pitch;
+     const col=shadeCPU(x,y,pitch),i=4*(yy*w+xx);
+     data[i]=col[0];data[i+1]=col[1];data[i+2]=col[2];data[i+3]=255;
+    }
+    yy++;
+   }
+   g.putImageData(img,0,0,0,yStart,w,yy-yStart);
+   if(yy<h)requestAnimationFrame(rows);
+  }
+  requestAnimationFrame(rows);
+ }
+ function render(){
+  raf=0;if(stopped)return;
+  resize();
+  if(glReady){
+   const {w,h}=sizeCSS(),worldMin=state.centerX-(w/h)*HALF_HEIGHT*Math.pow(10,-state.zoom);
+   const N=clamp(Math.ceil(18-worldMin),0,46),anchor=Math.round(state.centerX);
+   gl.viewport(0,0,canvas.width,canvas.height);gl.useProgram(program);
+   gl.uniform2f(u.resolution,canvas.width,canvas.height);
+   gl.uniform2f(u.local_center,state.centerX-anchor,state.centerY);
+   gl.uniform1f(u.pitch,2*HALF_HEIGHT*Math.pow(10,-state.zoom)/canvas.height);
+   gl.uniform1f(u.log_period,LOG_PERIOD);
+   gl.uniform1i(u.anchor,anchor);gl.uniform1i(u.N,N);gl.uniform1i(u.kind,state.kind);
+   gl.drawArrays(gl.TRIANGLE_STRIP,0,4);
+  } else renderCPU();
+  drawGuides();showMarker();updateLabels();
+ }
+ function schedule(){if(!raf&&!stopped)raf=requestAnimationFrame(render);}
+ function cancelAnimation(){if(anim){cancelAnimationFrame(anim);anim=0;}}
+ function animatedView(targetZoom,targetWorld,px,py){
+  cancelAnimation();const start=performance.now(),duration=320;
+  const z0=state.zoom,z1=clamp(targetZoom,0,MAX_ZOOM);
+  const p0=pointAt(px,py);
+  const world={re:targetWorld?.re??p0.re,im:targetWorld?.im??p0.im};
+  const center0={re:state.centerX,im:state.centerY};
+  function step(now){
+   const q=clamp((now-start)/duration,0,1),e=q*q*(3-2*q);
+   if(targetWorld){
+    state.zoom=z0+(z1-z0)*e;
+    state.centerX=center0.re+(targetWorld.re-center0.re)*e;
+    state.centerY=center0.im+(targetWorld.im-center0.im)*e;
+    clampCenter();interact();
+   }else setView(z0+(z1-z0)*e,world,px,py);
+   if(q<1)anim=requestAnimationFrame(step);else anim=0;
+  }
+  anim=requestAnimationFrame(step);
+ }
+ buttons.forEach(button=>button.addEventListener('click',()=>{
+  state.kind=Number(button.dataset.kind);
+  buttons.forEach(b=>b.setAttribute('aria-pressed',String(b===button)));
+  updateProbe();interact();
+ }));
+ root.querySelector('.pg-zoom').addEventListener('click',()=>{
+  cancelAnimation();const {w,h}=sizeCSS();
+  // Reset both position and magnification.
+  animatedView(0,{re:-1.5,im:0},w/2,h/2);
+ });
+ root.querySelector('.pg-close').addEventListener('click',()=>{state.probe=null;updateProbe();});
+ canvas.addEventListener('wheel',e=>{
+  e.preventDefault();cancelAnimation();const rect=canvas.getBoundingClientRect();
+  const x=e.clientX-rect.left,y=e.clientY-rect.top;
+  const world=pointAt(x,y),delta=e.deltaY*(e.deltaMode===1?16:e.deltaMode===2?220:1);
+  setView(state.zoom-delta*(e.ctrlKey?.0026:.00135),world,x,y);
+ },{passive:false});
+ const pointers=new Map();let startGesture=null,lastTap=null,pendingTap=null,wasMulti=false;
+ const length=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
+ function screen(e){const r=canvas.getBoundingClientRect();return {x:e.clientX-r.left,y:e.clientY-r.top};}
+ function clearTap(){if(pendingTap!==null){clearTimeout(pendingTap);pendingTap=null;}}
+ canvas.addEventListener('pointerdown',e=>{
+  if(e.pointerType==='mouse'&&e.button!==0)return;
+  e.preventDefault();canvas.setPointerCapture(e.pointerId);cancelAnimation();
+  const p=screen(e);
+  pointers.set(e.pointerId,{...p,x0:p.x,y0:p.y,t:performance.now(),type:e.pointerType});
+  if(pointers.size===1){
+   startGesture={cx:state.centerX,cy:state.centerY,zoom:state.zoom,world:pointAt(p.x,p.y),start:p};wasMulti=false;
+  }
+  if(pointers.size===2){
+   clearTap();lastTap=null;wasMulti=true;
+   const [a,b]=[...pointers.values()],mid={x:(a.x+b.x)/2,y:(a.y+b.y)/2};
+   startGesture={zoom:state.zoom,world:pointAt(mid.x,mid.y),distance:Math.max(1,length(a,b))};
+  }
+ });
+ canvas.addEventListener('pointermove',e=>{
+  if(!pointers.has(e.pointerId))return;
+  const p=screen(e),a=pointers.get(e.pointerId);a.x=p.x;a.y=p.y;
+  if(pointers.size===2){
+   const [p1,p2]=[...pointers.values()],mid={x:(p1.x+p2.x)/2,y:(p1.y+p2.y)/2};
+   setView(startGesture.zoom+Math.log10(Math.max(1,length(p1,p2))/startGesture.distance),startGesture.world,mid.x,mid.y);
+  }else if(!wasMulti && pointers.size===1 && length(a,{x:a.x0,y:a.y0})>4){
+   setView(startGesture.zoom,startGesture.world,p.x,p.y);
+   clearTap();lastTap=null;
+  }
+ });
+ function finish(e,cancelled){
+  const a=pointers.get(e.pointerId);if(!a)return;
+  const p=screen(e),now=performance.now(),moved=length(p,{x:a.x0,y:a.y0});
+  if(!cancelled && pointers.size===1 && !wasMulti && moved<10 && now-a.t<420){
+   if(lastTap && now-lastTap.time<340 && length(lastTap,p)<42 && lastTap.type===a.type){
+    clearTap();lastTap=null;const world=pointAt(p.x,p.y);
+    animatedView(state.zoom+Math.log10(2),null,p.x,p.y);
+   }else{
+    lastTap={...p,time:now,type:a.type};clearTap();
+    const world=pointAt(p.x,p.y);
+    pendingTap=setTimeout(()=>{
+     state.probe=world;pendingTap=null;updateProbe();
+    },350);
+   }
+  }
+  pointers.delete(e.pointerId);
+  if(pointers.size===0){wasMulti=false;startGesture=null;}
+  else if(pointers.size===1){
+   const other=[...pointers.values()][0];
+   startGesture={zoom:state.zoom,world:pointAt(other.x,other.y),start:{x:other.x,y:other.y}};
+  }
+ }
+ canvas.addEventListener('pointerup',e=>finish(e,false));
+ canvas.addEventListener('pointercancel',e=>finish(e,true));
+ canvas.addEventListener('dblclick',e=>e.preventDefault());
+ canvas.addEventListener('keydown',e=>{
+  const {w,h}=sizeCSS(),x=w/2,y=h/2;
+  if(e.key==='+'||e.key==='='){e.preventDefault();animatedView(state.zoom+Math.log10(2),null,x,y);}
+  else if(e.key==='-'||e.key==='_'){e.preventDefault();animatedView(state.zoom-Math.log10(2),null,x,y);}
+  else if(e.key==='Home'||e.key==='0'){e.preventDefault();root.querySelector('.pg-zoom').click();}
+ });
+ const ro=typeof ResizeObserver!=='undefined'?new ResizeObserver(schedule):null;
+ ro?.observe(frameEl);
+ const windowResize=()=>schedule();window.addEventListener('resize',windowResize);
+ canvas.addEventListener('webglcontextlost',e=>{e.preventDefault();glReady=false;});
+ canvas.addEventListener('webglcontextrestored',()=>{initGL();schedule();});
+ initGL();schedule();updateProbe();
+ if(typeof invalidation!=='undefined')invalidation.then(()=>{
+  stopped=true;cancelAnimation();clearTimeout(settleTimer);clearTap();
+  if(raf)cancelAnimationFrame(raf);ro?.disconnect();window.removeEventListener('resize',windowResize);
+ });
+}
+
+</script></body></html>
