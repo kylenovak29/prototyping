@@ -1,5 +1,5 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Polygamma Functions · Interactive Explorer</title><style>html,body{margin:0;min-height:100%;background:#0c141e;color:#e9eef3}body{box-sizing:border-box;padding:clamp(8px,2.5vw,30px)}#app{max-width:990px;margin:0 auto}</style></head><body><main id="app"></main><script>
-// Polygamma gallery v1 (Observable 2.0). One cell; no external packages.
+// Polygamma gallery v3 (Observable 2.0). One cell; no external packages.
 // Special Functions Numerical Core v0.1: no external dependencies.
 // Analytic log Gamma on C \ (-infinity,0], digamma, polygamma m=1..3.
 // Hurwitz zeta supported at integer s = 2,3,4 only in this prototype.
@@ -71,7 +71,7 @@ const SpecialFunctions = (() => {
   return {C,add,sub,scale,mul,inv,log,powi,logGamma,digamma,polygamma,hurwitzZetaInteger,evaluateSpecial};
 })();
 
-// Polygamma explorer v1 — Observable 2.0 / standalone browser.
+// Polygamma explorer v2 — Observable 2.0 / standalone browser.
 // Relies only on the SpecialFunctions object embedded above; no CDN dependencies.
 {
  const root = document.createElement('section');
@@ -82,12 +82,15 @@ const SpecialFunctions = (() => {
  .pg-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:13px}
  .pg-head h2{font-size:clamp(20px,2.6vw,27px);letter-spacing:-.025em;line-height:1.15;margin:0;font-weight:640}
  .pg-head span{color:var(--muted);font-size:12px}
- .pg-functions{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:11px}
+ .pg-controls{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px 18px;margin-bottom:11px}
+ .pg-functions{display:flex;flex-wrap:wrap;gap:5px}
+ .pg-markings{display:inline-flex;align-items:center;gap:7px;white-space:nowrap;color:#c5d0d8;font-size:12px;cursor:pointer;user-select:none}
+ .pg-markings input{accent-color:#98d9cc;width:16px;height:16px;margin:0;cursor:pointer}
  .pg-explorer button{font:inherit;cursor:pointer}
  .pg-function{background:#ffffff09;color:#d5dfe6;border:1px solid #e4f1ff23;border-radius:9px;min-height:37px;padding:6px 17px;line-height:1.05;font-size:15px;transition:background .13s,border-color .13s}
  .pg-function:hover{background:#ffffff17}
  .pg-function[aria-pressed=true]{background:#e6eced;color:#192632;border-color:#e6eced;font-weight:630;box-shadow:0 2px 7px #0003}
- .pg-explorer :is(button,canvas):focus-visible{outline:2px solid #98d9cc;outline-offset:2px}
+ .pg-explorer :is(button,canvas,input):focus-visible{outline:2px solid #98d9cc;outline-offset:2px}
  .pg-frame{width:100%;aspect-ratio:1.48;position:relative;overflow:hidden;border:1px solid #eaf5ff23;border-radius:12px;background:#777d88;isolation:isolate}
  .pg-canvas{display:block;width:100%;height:100%;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;cursor:crosshair;outline-offset:-3px}
  .pg-guides{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:hidden}
@@ -108,13 +111,13 @@ const SpecialFunctions = (() => {
  @media(prefers-reduced-motion:reduce){.pg-function{transition:none}}
  </style>
  <header class="pg-head"><h2>Polygamma functions</h2><span>Successive derivatives of log Γ(z)</span></header>
- <nav class="pg-functions" role="group" aria-label="Choose a special function">
+ <div class="pg-controls"><nav class="pg-functions" role="group" aria-label="Choose a special function">
   <button type="button" class="pg-function" data-kind="-1" aria-pressed="false">log Γ</button>
   <button type="button" class="pg-function" data-kind="0" aria-pressed="true">ψ</button>
   <button type="button" class="pg-function" data-kind="1" aria-pressed="false">ψ′</button>
   <button type="button" class="pg-function" data-kind="2" aria-pressed="false">ψ″</button>
   <button type="button" class="pg-function" data-kind="3" aria-pressed="false">ψ‴</button>
- </nav>
+ </nav><label class="pg-markings"><input class="pg-markings-toggle" type="checkbox" checked>Markings</label></div>
  <div class="pg-frame">
   <canvas class="pg-canvas" tabindex="0" role="img" aria-label="Domain coloring of the selected polygamma function. Drag to pan, pinch or scroll to zoom, double-tap to zoom in, and tap to inspect complex values."></canvas>
   <svg class="pg-guides" aria-hidden="true"></svg>
@@ -136,9 +139,10 @@ const SpecialFunctions = (() => {
  const zoomText=root.querySelector('.pg-zoom b');
  const description=root.querySelector('.pg-description');
  const buttons=[...root.querySelectorAll('.pg-function')];
+ const markingsToggle=root.querySelector('.pg-markings-toggle');
  const HALF_HEIGHT=3.05, LOG_PERIOD=Math.log(7), MAX_ZOOM=3;
  const LIMITS={xmin:-10,xmax:5,ymin:-6,ymax:6};
- const state={kind:0, centerX:-1.5,centerY:0,zoom:0,probe:null};
+ const state={kind:0, centerX:-1.5,centerY:0,zoom:0,probe:null,markings:true};
  const descriptions={
   '-1':'log Γ(z) · analytic branch cut on the nonpositive real axis',
   '0':'Digamma · simple poles at 0, −1, −2, …',
@@ -235,7 +239,11 @@ const SpecialFunctions = (() => {
  vec3 shade(vec2 z){
   vec2 f=functionValue(z);
   float phi=atan(f.y,f.x),logmod=log(max(length(f),1.e-20));
-  float saw=fract(logmod/u_log_period+.5);
+  float q=logmod/u_log_period+.5;
+  float saw=fract(q);
+  float aa=clamp(fwidth(q),1.e-4,.16);
+  // Regularized sawtooth: preserve the sharp reset, but soften it across roughly one pixel.
+  saw -= smoothstep(1.0-aa,1.0,saw);
   float tone=1.09-.36*saw;
   float zz=z.x+float(u_anchor);
   float nearest=clamp(-floor(zz+.5),0.0,12.0);
@@ -298,6 +306,7 @@ const SpecialFunctions = (() => {
   schedule();
  }
  function drawGuides(){
+  if(!state.markings){svg.replaceChildren();return;}
   const {w,h}=sizeCSS(),q=pitchCSS();if(w<1||h<1)return;
   let html='';
   const ay=h/2+state.centerY/q;
@@ -356,7 +365,12 @@ const SpecialFunctions = (() => {
  function shadeCPU(x,y,pitch){
   const val=SpecialFunctions.evaluateSpecial(state.kind,{re:x,im:y});
   if(val.kind!=='finite')return [108,110,120];
-  const saw=frac(clamp(val.logAbs,-200,200)/LOG_PERIOD+.5),tone=1.09-.36*saw,base=paletteSample(val.arg);
+  const q=clamp(val.logAbs,-200,200)/LOG_PERIOD+.5;
+  let saw=frac(q);
+  // Mild regularization for the non-WebGL fallback; WebGL uses pixel-scale fwidth antialiasing.
+  const aa=.02;
+  if(saw>1-aa) saw -= smoothstep(1-aa,1,saw);
+  const tone=1.09-.36*saw,base=paletteSample(val.arg);
   const k=Math.round(-x),dist=Math.hypot(x+clamp(k,0,10),y);
   const delta=pitch*Math.max(1,state.kind+1)/Math.max(dist,1e-8);
   const a=state.kind===-1?1:1-smoothstep(.75,2.4,delta);
@@ -421,6 +435,10 @@ const SpecialFunctions = (() => {
   }
   anim=requestAnimationFrame(step);
  }
+ markingsToggle.addEventListener('change',()=>{
+  state.markings=markingsToggle.checked;
+  drawGuides();
+ });
  buttons.forEach(button=>button.addEventListener('click',()=>{
   state.kind=Number(button.dataset.kind);
   buttons.forEach(b=>b.setAttribute('aria-pressed',String(b===button)));
