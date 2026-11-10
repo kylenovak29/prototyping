@@ -1,4 +1,4 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Hurwitz Zeta · Interactive Explorer v7 · Diagnostic</title><style>html,body{margin:0;min-height:100%;background:#0c141e;color:#e9eef3}body{box-sizing:border-box;padding:clamp(8px,2.5vw,30px)}#app{max-width:990px;margin:0 auto}</style></head><body><main id="app"></main><script>
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Hurwitz Zeta · Interactive Explorer v8</title><style>html,body{margin:0;min-height:100%;background:#0c141e;color:#e9eef3}body{box-sizing:border-box;padding:clamp(8px,2.5vw,30px)}#app{max-width:990px;margin:0 auto}</style></head><body><main id="app"></main><script>
 // Hurwitz numerical core v3. Complex s with Re s in [-2,4.5], Im s in [-2,2], excluding s = 1.
 // Euler–Maclaurin + recurrence; standalone, reusable point evaluator.
 const HurwitzCore = (() => {
@@ -79,7 +79,7 @@ const HurwitzCore = (() => {
  return {C,add,sub,scale,mul,inv,div,powMinus,bernoulliValue,hurwitzZeta,evaluate,isRealInteger,taylorCoefficients,evalTaylor};
 })();
 
-// Hurwitz zeta explorer v7 · numerical diagnostic and correction — Observable 2.0 / standalone browser.
+// Hurwitz zeta explorer v8 · GPU Taylor patches — Observable 2.0 / standalone browser.
 // Relies only on HurwitzCore embedded above; no CDN dependencies.
 {
  const root = document.createElement('section');
@@ -108,6 +108,7 @@ const HurwitzCore = (() => {
  .hz-note{font-size:11px;color:#9cb1bf;line-height:1.35}
  .hz-snap{white-space:nowrap;min-height:32px;padding:6px 10px;border-radius:8px;background:#ffffff10;color:#dfebf2;border:1px solid #e4f1ff24;font-size:12px}
  .hz-snap:hover{background:#ffffff17}
+ .hz-snap[aria-pressed=true]{background:#dce8e8;border-color:#dce8e8;color:#1d2a34;font-weight:630}
  .hz-intro{color:#b2c2cd;font-size:12px}
  .pg-explorer :is(button,input,canvas):focus-visible{outline:2px solid #98d9cc;outline-offset:2px}
  .pg-markings{display:inline-flex;align-items:center;gap:7px;white-space:nowrap;color:#c5d0d8;font-size:12px;cursor:pointer;user-select:none}
@@ -123,7 +124,7 @@ const HurwitzCore = (() => {
  .hz-diag{border:1px solid #e4f1ff25;border-radius:7px;background:#ffffff0a;color:#cbd8e2;padding:5px 9px;min-height:29px;font-size:11px}
  .hz-diag[aria-pressed=true]{background:#dce8e8;color:#1d2a34;border-color:#dce8e8;font-weight:600}
  .hz-diag:hover:not([aria-pressed=true]){background:#ffffff20}
- .hz-status{font-size:10px;color:#9cafbd;flex:1;text-align:right;min-width:110px}
+
  .hz-reference{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;display:none;image-rendering:auto}
  .hz-reference.is-visible{display:block}
  .pg-frame{width:100%;aspect-ratio:1.48;position:relative;overflow:hidden;border:1px solid #eaf5ff23;border-radius:12px;background:#777d88;isolation:isolate}
@@ -162,24 +163,18 @@ const HurwitzCore = (() => {
     <span class="hz-axis-label hz-axis-mid">0</span>
    </div>
    <div class="hz-side">
-    <div class="hz-note">Drag in the s-plane to vary both <em>Re s</em> and <em>Im s</em>. Use the button below to return to the real axis.</div>
-    <button class="hz-snap" type="button">Im s = 0</button>
+    <div class="hz-note">Drag to choose <em>Re s</em> and <em>Im s</em>. Lock the selection to the real axis when desired.</div>
+    <button class="hz-snap" type="button" aria-pressed="false" title="Lock or unlock the real axis">Im s = 0</button>
    </div>
   </div>
  </div>
- <div class="hz-diagnostics" aria-label="Numerical diagnostic controls">
-  <div class="hz-diag-group" role="group" aria-label="Numerical evaluator">
-   <span class="hz-diag-label">Evaluator</span>
-   <button class="hz-diag hz-engine" type="button" data-engine="reference" aria-pressed="true">Corrected</button>
-   <button class="hz-diag hz-engine" type="button" data-engine="gpu" aria-pressed="false">Original GPU</button>
-  </div>
-  <div class="hz-diag-group" role="group" aria-label="Domain coloring diagnostic">
+ <div class="hz-diagnostics" aria-label="Domain coloring">
+  <div class="hz-diag-group" role="group" aria-label="Coloring mode">
    <span class="hz-diag-label">Color</span>
    <button class="hz-diag hz-mode" type="button" data-mode="combined" aria-pressed="true">Combined</button>
    <button class="hz-diag hz-mode" type="button" data-mode="phase" aria-pressed="false">Phase</button>
    <button class="hz-diag hz-mode" type="button" data-mode="modulus" aria-pressed="false">Modulus</button>
   </div>
-  <span class="hz-status" aria-live="polite">Double-precision refinement</span>
  </div>
  <div class="pg-frame">
   <canvas class="pg-canvas" tabindex="0" role="img" aria-label="Domain coloring of Hurwitz zeta for the selected complex order s. Drag to pan, pinch or scroll to zoom, double-tap to zoom in, and tap to inspect complex values."></canvas>
@@ -197,10 +192,8 @@ const HurwitzCore = (() => {
 
  const canvas=root.querySelector('.pg-canvas');
  const referenceCanvas=root.querySelector('.hz-reference');
- const diagnosticStatus=root.querySelector('.hz-status');
- const engineButtons=[...root.querySelectorAll('.hz-engine')];
  const modeButtons=[...root.querySelectorAll('.hz-mode')];
- const diagnostics={engine:'reference',mode:'combined'};
+ const diagnostics={mode:'combined'};
  const frameEl=root.querySelector('.pg-frame');
  const svg=root.querySelector('.pg-guides');
  const pin=root.querySelector('.pg-pin');
@@ -217,7 +210,7 @@ const HurwitzCore = (() => {
  const HALF_HEIGHT=3.05, LOG_PERIOD=Math.log(7), MAX_ZOOM=3;
  const LIMITS={xmin:-10,xmax:5,ymin:-6,ymax:6};
  const SRANGE={reMin:-2,reMax:4.5,imMin:-2,imMax:2};
- const state={sRe:2,sIm:0,centerX:-1.5,centerY:0,zoom:0,probe:null,markings:true};
+ const state={sRe:2,sIm:0,centerX:-1.5,centerY:0,zoom:0,probe:null,markings:true,realLock:false};
  const currentS=()=>({re:state.sRe,im:state.sIm});
  const isRealAxis=()=>Math.abs(state.sIm)<1e-7;
  const isIntegerOrder=()=>isRealAxis()&&Math.abs(state.sRe-Math.round(state.sRe))<1e-7;
@@ -252,7 +245,7 @@ const HurwitzCore = (() => {
   g.strokeStyle='rgba(255,255,255,.08)'; g.lineWidth=1;
   for(const x of [-2,0,2,4]){ const px=(x-SRANGE.reMin)/(SRANGE.reMax-SRANGE.reMin)*r.width; g.beginPath(); g.moveTo(px,.5); g.lineTo(px,r.height-.5); g.stroke(); }
   for(const y of [-2,-1,0,1,2]){ const py=(SRANGE.imMax-y)/(SRANGE.imMax-SRANGE.imMin)*r.height; g.beginPath(); g.moveTo(.5,py); g.lineTo(r.width-.5,py); g.stroke(); }
-  g.strokeStyle='rgba(255,240,196,.28)';
+  g.strokeStyle=state.realLock?'rgba(152,217,204,.9)':'rgba(255,240,196,.28)';
   const y0=(SRANGE.imMax-0)/(SRANGE.imMax-SRANGE.imMin)*r.height; g.beginPath(); g.moveTo(.5,y0); g.lineTo(r.width-.5,y0); g.stroke();
   g.strokeStyle='rgba(241,244,252,.25)';
   const x0=(0-SRANGE.reMin)/(SRANGE.reMax-SRANGE.reMin)*r.width; g.beginPath(); g.moveTo(x0,.5); g.lineTo(x0,r.height-.5); g.stroke();
@@ -262,7 +255,7 @@ const HurwitzCore = (() => {
   const pt=selectorPointFromValue();
   sDot.style.left=`${pt.x+6}px`; sDot.style.top=`${pt.y+6}px`;
  }
- function setOrder(re,im){state.sRe=re;state.sIm=im;clampS();updateLabels();updateProbe();drawSPlane();interact();}
+ function setOrder(re,im){state.sRe=re;state.sIm=state.realLock?0:im;clampS();updateLabels();updateProbe();drawSPlane();interact();}
  
  let gl=null,program=null,glReady=false,ctx=null,raf=0,settleTimer=0,anim=0,stopped=false,lowRes=false,fbToken=0;
 
@@ -438,7 +431,68 @@ const HurwitzCore = (() => {
   vec2 z=u_local_center+(gl_FragCoord.xy-.5*u_resolution)*u_pitch;
   outColor=vec4(shade(z),1.0);
  }`;
- let u={};
+ // Each fragment evaluates an independently validated local Taylor polynomial.
+ // A per-pixel R16UI index texture selects a patch; its RGBA32F coefficient
+ // atlas stores the patch center in pixel coordinates and the coefficients.
+ // Pixel-local coordinates avoid subtracting nearly equal large z-values on GPU.
+ const fsTaylor=`#version 300 es
+ precision highp float;
+ precision highp usampler2D;
+ uniform vec2 u_resolution,u_local_center,u_s,u_source_resolution,u_source_center;
+ uniform float u_pitch,u_log_period,u_source_pitch;
+ uniform int u_anchor,u_mode,u_reproject;
+ uniform sampler2D u_palette,u_coeffs;
+ uniform highp usampler2D u_patch_ids;
+ out vec4 outColor;
+ const float TAU=6.283185307179586;
+ vec2 cmul(vec2 a,vec2 b){return vec2(a.x*b.x-a.y*b.y,a.x*b.y+a.y*b.x);}
+ vec2 functionValue(vec2 z){
+   // Reuse the most recently corrected Taylor atlas during modest zoom-in.
+   // Otherwise use exact pixel coordinates for the freshly built atlas.
+   vec2 sourcePixel=vec2(gl_FragCoord.x,u_resolution.y-gl_FragCoord.y);
+   float sourcePitch=u_pitch;
+   if(u_reproject==1){
+     sourcePitch=u_source_pitch;
+     sourcePixel=vec2(
+       (z.x-u_source_center.x)/sourcePitch+0.5*u_source_resolution.x,
+       0.5*u_source_resolution.y-(z.y-u_source_center.y)/sourcePitch);
+   }
+   int ix=clamp(int(floor(sourcePixel.x)),0,int(u_source_resolution.x)-1);
+   int iy=clamp(int(floor(sourcePixel.y)),0,int(u_source_resolution.y)-1);
+   uint index=texelFetch(u_patch_ids,ivec2(ix,iy),0).r;
+   int col=int(index%8u)*26;
+   int row=int(index/8u);
+   vec4 center=texelFetch(u_coeffs,ivec2(col,row),0);
+   // Normalize by patch radius: high-order derivatives can overflow a
+   // float32 coefficient texture even when their polynomial sum is finite.
+   vec2 delta=vec2(sourcePixel.x-center.x,center.y-sourcePixel.y)*sourcePitch/max(center.z,1.e-20);
+   vec2 value=vec2(0.0);
+   for(int k=24;k>=0;k--){
+     vec4 coeff=texelFetch(u_coeffs,ivec2(col+k+1,row),0);
+     value=cmul(value,delta)+coeff.xy;
+   }
+   return value;
+ }
+ void main(){
+   vec2 z=u_local_center+(gl_FragCoord.xy-0.5*u_resolution)*u_pitch;
+   vec2 f=functionValue(z);
+   float phi=atan(f.y,f.x),logmod=log(max(length(f),1.e-20));
+   float q=logmod/u_log_period+0.5;
+   float aa=clamp(fwidth(q),1.e-4,.45);
+   float d=fract(q+0.5)-0.5;
+   float saw=d+clamp(0.5-d/aa,0.0,1.0);
+   float tone=u_mode==1?1.0:(1.09-0.36*saw);
+   float zz=z.x+float(u_anchor);
+   float nearest=clamp(-floor(zz+0.5),0.0,12.0);
+   vec2 dz=z+vec2(float(u_anchor)+nearest,0.0);
+   float dist=max(length(dz),1.e-8);
+   float detail=u_pitch*length(u_s)/dist;
+   float clear=1.0-smoothstep(0.75,2.4,detail);
+   vec3 col=texture(u_palette,vec2(fract(phi/TAU),0.5)).rgb*tone;
+   if(u_mode==2){float gray=clamp(.5+.4*(tone-.91)/.18,.12,.95);col=vec3(gray);}
+   outColor=vec4(clamp(mix(vec3(.57,.60,.64),col,clear),0.0,1.0),1.0);
+ }`;
+ let u={},taylorUniforms={},taylorProgram=null,gpuAtlas=null,patchIdTexture=null,patchCoeffTexture=null,paletteGPU=null;
  function makeShader(g,type,src){const s=g.createShader(type);g.shaderSource(s,src);g.compileShader(s);if(!g.getShaderParameter(s,g.COMPILE_STATUS))throw Error(g.getShaderInfoLog(s));return s;}
  function initGL(){
   try{
@@ -450,12 +504,35 @@ const HurwitzCore = (() => {
    g.deleteShader(v);g.deleteShader(f);g.useProgram(p);
    const buf=g.createBuffer();g.bindBuffer(g.ARRAY_BUFFER,buf);g.bufferData(g.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,1,1]),g.STATIC_DRAW);
    const loc=g.getAttribLocation(p,'a_vertex');g.enableVertexAttribArray(loc);g.vertexAttribPointer(loc,2,g.FLOAT,false,0,0);
-   const tex=g.createTexture();g.activeTexture(g.TEXTURE0);g.bindTexture(g.TEXTURE_2D,tex);
+   const tex=g.createTexture();paletteGPU=tex;g.activeTexture(g.TEXTURE0);g.bindTexture(g.TEXTURE_2D,tex);
    g.texImage2D(g.TEXTURE_2D,0,g.RGBA,2048,1,0,g.RGBA,g.UNSIGNED_BYTE,palette);
    g.texParameteri(g.TEXTURE_2D,g.TEXTURE_MIN_FILTER,g.LINEAR);g.texParameteri(g.TEXTURE_2D,g.TEXTURE_MAG_FILTER,g.LINEAR);
    g.texParameteri(g.TEXTURE_2D,g.TEXTURE_WRAP_S,g.REPEAT);g.texParameteri(g.TEXTURE_2D,g.TEXTURE_WRAP_T,g.CLAMP_TO_EDGE);
    u={};for(const name of ['resolution','local_center','pitch','log_period','anchor','N','s','s_integer','special','mode','palette'])u[name]=g.getUniformLocation(p,'u_'+name);
    g.uniform1i(u.palette,0);
+   try {
+   const tprog=g.createProgram(),tf=makeShader(g,g.FRAGMENT_SHADER,fsTaylor);
+   const tv=makeShader(g,g.VERTEX_SHADER,vs);
+   g.attachShader(tprog,tv);g.attachShader(tprog,tf);g.linkProgram(tprog);
+   if(!g.getProgramParameter(tprog,g.LINK_STATUS))throw Error('Taylor shader: '+g.getProgramInfoLog(tprog));
+   g.deleteShader(tv);g.deleteShader(tf);
+   g.useProgram(tprog);
+   const tloc=g.getAttribLocation(tprog,'a_vertex');
+   g.enableVertexAttribArray(tloc);g.vertexAttribPointer(tloc,2,g.FLOAT,false,0,0);
+   for(const name of ['resolution','local_center','pitch','log_period','anchor','s','mode','palette','patch_ids','coeffs','source_resolution','source_center','source_pitch','reproject']){
+     taylorUniforms[name]=g.getUniformLocation(tprog,'u_'+name);
+   }
+   g.uniform1i(taylorUniforms.palette,0);
+   g.uniform1i(taylorUniforms.patch_ids,1);
+   g.uniform1i(taylorUniforms.coeffs,2);
+   // Re-enable the shared full-screen buffer in the original program.
+   g.useProgram(p);
+   const vloc=g.getAttribLocation(p,'a_vertex');g.enableVertexAttribArray(vloc);g.vertexAttribPointer(vloc,2,g.FLOAT,false,0,0);
+   taylorProgram=tprog;
+   } catch(taylorError){
+     console.warn('GPU Taylor unavailable; using double-precision Canvas refinement',taylorError);
+     taylorProgram=null;g.useProgram(p);
+   }
    gl=g;program=p;glReady=true;return true;
   }catch(err){console.warn('WebGL unavailable, using progressive Canvas rendering',err);return false;}
  }
@@ -632,6 +709,162 @@ const HurwitzCore = (() => {
    const pitch=2*HALF_HEIGHT*Math.pow(10,-snap.zoom)/h;
    return {re:snap.centerX+(x+0.5-w/2)*pitch,im:snap.centerY+(h/2-y-0.5)*pitch};
  }
+ // GPU Taylor patch atlas. Every coefficient and corner check is computed
+ // in double precision; each displayed pixel uses a GPU Horner evaluation.
+ function atlasMatchesView(){
+   const a=gpuAtlas;
+   if(!a || !glReady || a.sRe!==state.sRe || a.sIm!==state.sIm)return false;
+   if(a.w===canvas.width && a.h===canvas.height && a.zoom===state.zoom &&
+       a.cx===state.centerX && a.cy===state.centerY)return true;
+   // A previously computed atlas can be reused over a slightly smaller
+   // viewport at the same order: no CPU or GPU special-function re-evaluation.
+   if(state.zoom<a.zoom || state.zoom-a.zoom>Math.log10(1.5))return false;
+   const oldHy=HALF_HEIGHT*Math.pow(10,-a.zoom),newHy=HALF_HEIGHT*Math.pow(10,-state.zoom);
+   const oldHx=oldHy*a.w/a.h,newHx=newHy*canvas.width/canvas.height;
+   const margin=2*oldHy/a.h;
+   return Math.abs(state.centerX-a.cx)+newHx<=oldHx-margin &&
+          Math.abs(state.centerY-a.cy)+newHy<=oldHy-margin;
+ }
+ function renderTaylorGPU(){
+   if(!gl||!gpuAtlas||!taylorProgram)return;
+   const g=gl,a=gpuAtlas,anchor=Math.round(state.centerX);
+   g.viewport(0,0,canvas.width,canvas.height);
+   g.useProgram(taylorProgram);
+   const q=taylorUniforms;
+   g.uniform2f(q.resolution,canvas.width,canvas.height);
+   g.uniform2f(q.local_center,state.centerX-anchor,state.centerY);
+   g.uniform1f(q.pitch,2*HALF_HEIGHT*Math.pow(10,-state.zoom)/canvas.height);
+   g.uniform1f(q.log_period,LOG_PERIOD);
+   g.uniform1i(q.anchor,anchor);
+   g.uniform2f(q.s,state.sRe,state.sIm);
+   g.uniform1i(q.mode,diagnostics.mode==='phase'?1:diagnostics.mode==='modulus'?2:0);
+   const reproject=!(a.w===canvas.width && a.h===canvas.height &&
+                     a.zoom===state.zoom && a.cx===state.centerX && a.cy===state.centerY);
+   g.uniform1i(q.reproject,reproject?1:0);
+   g.uniform2f(q.source_resolution,a.w,a.h);
+   g.uniform2f(q.source_center,a.cx-anchor,a.cy);
+   g.uniform1f(q.source_pitch,2*HALF_HEIGHT*Math.pow(10,-a.zoom)/a.h);
+   g.activeTexture(g.TEXTURE0);g.bindTexture(g.TEXTURE_2D,gpuAtlas.paletteTexture);
+   g.activeTexture(g.TEXTURE1);g.bindTexture(g.TEXTURE_2D,patchIdTexture);
+   g.activeTexture(g.TEXTURE2);g.bindTexture(g.TEXTURE_2D,patchCoeffTexture);
+   g.drawArrays(g.TRIANGLE_STRIP,0,4);
+   g.activeTexture(g.TEXTURE0);
+ }
+ function uploadTaylorAtlas(token,snap,w,h,idMap,patches){
+   if(token!==refJob||stopped||!glReady)return;
+   const g=gl,rows=Math.ceil((patches.length+1)/8),cols=8*26;
+   const maxSize=g.getParameter(g.MAX_TEXTURE_SIZE);
+   if(rows>maxSize||w>maxSize||h>maxSize||patches.length>65534){
+     console.warn('Taylor patch atlas exceeds GPU texture limits; using CPU refinement');runReferenceJob(token);return;
+   }
+   const data=new Float32Array(cols*rows*4);
+   patches.forEach((patch,i)=>{
+     const id=i+1,col=(id%8)*26,row=Math.floor(id/8);
+     let pos=4*(row*cols+col);
+     data[pos]=patch.mx;data[pos+1]=patch.my;data[pos+2]=patch.radius;
+     let scalePower=1;
+     for(let k=0;k<25;k++){
+       const c=patch.coeff[k] || {re:0,im:0};
+       pos=4*(row*cols+col+k+1);
+       const hre=Math.fround(c.re*scalePower),him=Math.fround(c.im*scalePower);
+       scalePower*=patch.radius;
+       data[pos]=hre;data[pos+1]=him;
+       // Low components are retained for a future compensated arithmetic pass.
+       data[pos+2]=c.re*scalePower/patch.radius-hre;data[pos+3]=c.im*scalePower/patch.radius-him;
+     }
+   });
+   g.pixelStorei(g.UNPACK_ALIGNMENT,1);
+   if(!patchIdTexture)patchIdTexture=g.createTexture();
+   g.activeTexture(g.TEXTURE1);g.bindTexture(g.TEXTURE_2D,patchIdTexture);
+   g.texParameteri(g.TEXTURE_2D,g.TEXTURE_MIN_FILTER,g.NEAREST);
+   g.texParameteri(g.TEXTURE_2D,g.TEXTURE_MAG_FILTER,g.NEAREST);
+   g.texParameteri(g.TEXTURE_2D,g.TEXTURE_WRAP_S,g.CLAMP_TO_EDGE);
+   g.texParameteri(g.TEXTURE_2D,g.TEXTURE_WRAP_T,g.CLAMP_TO_EDGE);
+   g.texImage2D(g.TEXTURE_2D,0,g.R16UI,w,h,0,g.RED_INTEGER,g.UNSIGNED_SHORT,idMap);
+   if(!patchCoeffTexture)patchCoeffTexture=g.createTexture();
+   g.activeTexture(g.TEXTURE2);g.bindTexture(g.TEXTURE_2D,patchCoeffTexture);
+   g.texParameteri(g.TEXTURE_2D,g.TEXTURE_MIN_FILTER,g.NEAREST);
+   g.texParameteri(g.TEXTURE_2D,g.TEXTURE_MAG_FILTER,g.NEAREST);
+   g.texParameteri(g.TEXTURE_2D,g.TEXTURE_WRAP_S,g.CLAMP_TO_EDGE);
+   g.texParameteri(g.TEXTURE_2D,g.TEXTURE_WRAP_T,g.CLAMP_TO_EDGE);
+   g.texImage2D(g.TEXTURE_2D,0,g.RGBA32F,cols,rows,0,g.RGBA,g.FLOAT,data);
+   if(g.getError()!==g.NO_ERROR){
+     console.warn('Taylor atlas texture unavailable; reverting to CPU reference');
+     runReferenceJob(token);return;
+   }
+   g.activeTexture(g.TEXTURE0);
+   gpuAtlas={w,h,cx:snap.centerX,cy:snap.centerY,zoom:snap.zoom,sRe:snap.s.re,sIm:snap.s.im,paletteTexture:paletteGPU};
+   schedule();
+ }
+ function runGpuTaylorJob(token){
+   if(stopped||token!==refJob||!glReady)return;
+   const snap=diagnosticSnapshot();
+   const w=canvas.width,h=canvas.height;
+   if(w<2||h<2)return;
+   const pitch=2*HALF_HEIGHT*Math.pow(10,-snap.zoom)/h;
+   const idMap=new Uint16Array(w*h);
+   const patches=[];
+   const stack=[{x0:0,x1:w,y0:0,y1:h}];
+   const s=snap.s;
+   let direct=0,maxError=0,overflow=false;
+   function assign(tile,coefficients){
+     const id=patches.length+1;
+     if(id>65534){overflow=true;return false;}
+     const {x0,x1,y0,y1}=tile;
+     const patchRadius=Math.max(pitch,0.5*pitch*Math.hypot(x1-x0,y1-y0));
+     patches.push({mx:(x0+x1)/2,my:(y0+y1)/2,radius:patchRadius,coeff:coefficients});
+     for(let yy=y0;yy<y1;yy++)idMap.fill(id,yy*w+x0,yy*w+x1);
+     return true;
+   }
+   function directPixel(x,y){
+     const z=referenceAtPixel(x,y,snap,w,h);
+     let v;
+     try{v=HurwitzCore.hurwitzZeta(s,z);}catch(e){v={re:NaN,im:NaN};}
+     direct++;
+     assign({x0:x,x1:x+1,y0:y,y1:y+1},[v]);
+   }
+   function subdivide(tile){
+     const {x0,x1,y0,y1}=tile,bw=x1-x0,bh=y1-y0;
+     if(bw>=bh && bw>2){const k=Math.floor((x0+x1)/2);stack.push({x0:k,x1,y0,y1},{x0,x1:k,y0,y1});}
+     else if(bh>2){const k=Math.floor((y0+y1)/2);stack.push({x0,x1,y0,y1:k},{x0,x1,y0:k,y1});}
+     else for(let y=y0;y<y1;y++)for(let x=x0;x<x1;x++)directPixel(x,y);
+   }
+   function processTile(tile){
+     const {x0,x1,y0,y1}=tile,bw=x1-x0,bh=y1-y0;
+     const mx=(x0+x1)/2,my=(y0+y1)/2;
+     const center={re:snap.centerX+(mx-w/2)*pitch,im:snap.centerY+(h/2-my)*pitch};
+     const halfRadius=.5*pitch*Math.hypot(bw,bh);
+     const nearest=Math.min(0,Math.round(center.re));
+     const radius=Math.hypot(center.re-nearest,center.im);
+     const ymin=snap.centerY+(h/2-y1)*pitch,ymax=snap.centerY+(h/2-y0)*pitch;
+     const cut=center.re-halfRadius<0&&ymin<0&&ymax>0&&!(Math.abs(s.im)<1e-10&&Number.isInteger(s.re));
+     if(halfRadius>REF_RATIO*radius||cut){subdivide(tile);return;}
+     let coeff;
+     try{coeff=HurwitzCore.taylorCoefficients(s,center,REF_DEGREE);}catch(e){subdivide(tile);return;}
+     if(coeff.some(q=>!Number.isFinite(q.re)||!Number.isFinite(q.im))){subdivide(tile);return;}
+     let error=0;
+     for(const [x,y] of [[x0,y0],[x1-1,y0],[x0,y1-1],[x1-1,y1-1]]){
+       const z=referenceAtPixel(x,y,snap,w,h);
+       let actual;
+       try{actual=HurwitzCore.hurwitzZeta(s,z);}catch(e){subdivide(tile);return;}
+       const pred=HurwitzCore.evalTaylor(coeff,{re:z.re-center.re,im:z.im-center.im});
+       error=Math.max(error,Math.hypot(pred.re-actual.re,pred.im-actual.im)/Math.max(1e-11,Math.hypot(actual.re,actual.im)));
+     }
+     if(!Number.isFinite(error)||error>3e-6){subdivide(tile);return;}
+     maxError=Math.max(error,maxError);
+     assign(tile,coeff);
+   }
+   function work(){
+     if(token!==refJob||stopped)return;
+     const now=performance.now();
+     while(stack.length&&performance.now()-now<10)processTile(stack.pop());
+     if(stack.length){requestAnimationFrame(work);return;}
+     // Float32 Taylor coefficients are uploaded in one atomic revision.
+     if(overflow){runReferenceJob(token);return;}
+     uploadTaylorAtlas(token,snap,w,h,idMap,patches);
+   }
+   requestAnimationFrame(work);
+ }
  function referenceColoring(value,mode,dx,dy){
    const a=Math.hypot(value.re,value.im);
    if(!Number.isFinite(a))return [146,152,163];
@@ -652,17 +885,19 @@ const HurwitzCore = (() => {
    ++refJob;
    referenceCanvas.classList.remove('is-visible');
    if(refWait)clearTimeout(refWait);
-   if(diagnostics.engine!=='reference'||isOrderPole()){
-     diagnosticStatus.textContent=diagnostics.engine==='gpu'?'Original GPU evaluator':'Pole at s = 1';
-     return;
-   }
-   diagnosticStatus.textContent='Refining in double precision…';
-   // Don't start a costly reference image for every drag frame.
+   if(isOrderPole())return;
+   // Exact Bernoulli-polynomial orders are inexpensive and already evaluated
+   // analytically in the legacy GPU shader; no atlas is needed.
+   if(glReady && orderSpecialCode()>0)return;
    const token=refJob;
-   refWait=setTimeout(()=>{if(token===refJob)runReferenceJob(token);},180);
+   refWait=setTimeout(()=>{
+     if(stopped||token!==refJob)return;
+     if(glReady && taylorProgram)runGpuTaylorJob(token);
+     else runReferenceJob(token);
+   },180);
  }
  function runReferenceJob(token){
-   if(stopped||token!==refJob||diagnostics.engine!=='reference')return;
+   if(stopped||token!==refJob)return;
    const snap=diagnosticSnapshot();
    const rect=canvas.getBoundingClientRect();if(rect.width<2||rect.height<2)return;
    const dpr=Math.min(window.devicePixelRatio||1,1.45);
@@ -794,7 +1029,7 @@ const HurwitzCore = (() => {
        referenceCanvas.width=w;referenceCanvas.height=h;
        referenceCanvas.getContext('2d',{alpha:false}).drawImage(image,0,0);
        referenceCanvas.classList.add('is-visible');
-       diagnosticStatus.textContent=`Reference · ${tiles} patches · ${direct} direct px · corner check ${maxAcceptedErr.toExponential(1)} · ${Math.round(performance.now()-started)} ms`;
+       // Reference pixels are displayed only when WebGL is unavailable.
      }
      requestAnimationFrame(shadeRows);
    }
@@ -809,6 +1044,11 @@ const HurwitzCore = (() => {
    if(glReady){gl.viewport(0,0,canvas.width,canvas.height);gl.clearColor(.20,.25,.30,1);gl.clear(gl.COLOR_BUFFER_BIT);}
    else {const g=ctx||(ctx=canvas.getContext('2d',{alpha:false}));g.fillStyle='#33404d';g.fillRect(0,0,canvas.width,canvas.height);}
   } else if(glReady){
+   if(atlasMatchesView()){
+     renderTaylorGPU();
+     drawGuides();showMarker();updateLabels();
+     return;
+   }
    const {w,h}=sizeCSS(),worldMin=state.centerX-(w/h)*HALF_HEIGHT*Math.pow(10,-state.zoom);
    // For Re(s)<1, a shorter Euler–Maclaurin shift greatly reduces
    // cancellation in single-precision WebGL, particularly for complex s
@@ -847,26 +1087,28 @@ const HurwitzCore = (() => {
   anim=requestAnimationFrame(step);
  }
  markingsToggle.addEventListener('change',()=>{state.markings=markingsToggle.checked;drawGuides();});
- snapButton.addEventListener('click',()=>setOrder(state.sRe,0));
- engineButtons.forEach(b=>b.addEventListener('click',()=>{
-   diagnostics.engine=b.dataset.engine;
-   engineButtons.forEach(x=>x.setAttribute('aria-pressed',String(x===b)));
-   referenceRenderRequest();schedule();
- }));
+ snapButton.addEventListener('click',()=>{
+   state.realLock=!state.realLock;
+   snapButton.setAttribute('aria-pressed',String(state.realLock));
+   if(state.realLock)setOrder(state.sRe,0);
+   else drawSPlane();
+ });
  modeButtons.forEach(b=>b.addEventListener('click',()=>{
    diagnostics.mode=b.dataset.mode;
    modeButtons.forEach(x=>x.setAttribute('aria-pressed',String(x===b)));
-   referenceRenderRequest();schedule();
+   // The coloring is performed in the fragment shader: no recomputation of coefficients.
+   if(!glReady||!taylorProgram)referenceRenderRequest();
+   schedule();
  }));
  function refreshSelectorOnly(){updateLabels();updateProbe();drawSPlane();interact();}
  let sPointerId=null;
  function selectorScreen(e){const r=sPlane.getBoundingClientRect();return {x:e.clientX-r.left,y:e.clientY-r.top};}
- function selectorApply(e){const p=selectorScreen(e),v=selectorValueFromPoint(p.x,p.y); state.sRe=v.re; state.sIm=v.im; clampS(); refreshSelectorOnly();}
+ function selectorApply(e){const p=selectorScreen(e),v=selectorValueFromPoint(p.x,p.y); state.sRe=v.re; state.sIm=state.realLock?0:v.im; clampS(); refreshSelectorOnly();}
  sPlane.addEventListener('pointerdown',e=>{e.preventDefault();sPointerId=e.pointerId;sPlane.setPointerCapture(e.pointerId);selectorApply(e);});
  sPlane.addEventListener('pointermove',e=>{if(e.pointerId===sPointerId)selectorApply(e);});
  function endSelector(e){if(e.pointerId===sPointerId){sPointerId=null;}}
  sPlane.addEventListener('pointerup',endSelector); sPlane.addEventListener('pointercancel',endSelector);
- sPlane.addEventListener('keydown',e=>{const step=e.shiftKey?0.25:0.05; if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key)){e.preventDefault(); if(e.key==='ArrowLeft') state.sRe-=step; if(e.key==='ArrowRight') state.sRe+=step; if(e.key==='ArrowUp') state.sIm+=step; if(e.key==='ArrowDown') state.sIm-=step; clampS(); refreshSelectorOnly();}});
+ sPlane.addEventListener('keydown',e=>{const step=e.shiftKey?0.25:0.05; if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key)){e.preventDefault(); if(e.key==='ArrowLeft') state.sRe-=step; if(e.key==='ArrowRight') state.sRe+=step; if(e.key==='ArrowUp') state.sIm+=step; if(e.key==='ArrowDown') state.sIm-=step; if(state.realLock)state.sIm=0; clampS(); refreshSelectorOnly();}});
  root.querySelector('.pg-zoom').addEventListener('click',()=>{
   cancelAnimation();const {w,h}=sizeCSS();
   // Reset both position and magnification.
@@ -942,9 +1184,9 @@ const HurwitzCore = (() => {
  const ro=typeof ResizeObserver!=='undefined'?new ResizeObserver(()=>{schedule();referenceRenderRequest();}):null;
  ro?.observe(frameEl);
  const windowResize=()=>{schedule();referenceRenderRequest();};window.addEventListener('resize',windowResize);
- canvas.addEventListener('webglcontextlost',e=>{e.preventDefault();glReady=false;fbToken++;});
- canvas.addEventListener('webglcontextrestored',()=>{initGL();schedule();});
- initGL();schedule();updateProbe();referenceRenderRequest();
+ canvas.addEventListener('webglcontextlost',e=>{e.preventDefault();glReady=false;gpuAtlas=null;fbToken++;});
+ canvas.addEventListener('webglcontextrestored',()=>{gpuAtlas=null;initGL();schedule();referenceRenderRequest();});
+ initGL();drawSPlane();schedule();updateProbe();referenceRenderRequest();
  if(typeof invalidation!=='undefined')invalidation.then(()=>{
   stopped=true;fbToken++;refJob++;clearTimeout(refWait);cancelAnimation();clearTimeout(settleTimer);clearTap();
   if(raf)cancelAnimationFrame(raf);ro?.disconnect();window.removeEventListener('resize',windowResize);
