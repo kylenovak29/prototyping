@@ -1,46 +1,68 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Hurwitz Zeta · Interactive Explorer</title><style>html,body{margin:0;min-height:100%;background:#0c141e;color:#e9eef3}body{box-sizing:border-box;padding:clamp(8px,2.5vw,30px)}#app{max-width:990px;margin:0 auto}</style></head><body><main id="app"></main><script>
-// Hurwitz numerical core v1. Real s in [1.5,4.5], complex z on the principal branch.
+// Hurwitz numerical core v3. Complex s with Re s in [-2,4.5], Im s in [-2,2], excluding s = 1.
 // Euler–Maclaurin + recurrence; standalone, reusable point evaluator.
 const HurwitzCore = (() => {
  const Bernoulli=[1/6,-1/30,1/42,-1/30,5/66,-691/2730,7/6,-3617/510];
  const em=Bernoulli.map((b,j)=>{let q=1;for(let k=2;k<=2*j+2;k++)q*=k;return b/q;});
  const C=(re,im=0)=>({re,im});
  const add=(a,b)=>C(a.re+b.re,a.im+b.im);
+ const sub=(a,b)=>C(a.re-b.re,a.im-b.im);
  const scale=(a,c)=>C(c*a.re,c*a.im);
  const mul=(a,b)=>C(a.re*b.re-a.im*b.im,a.re*b.im+a.im*b.re);
  const inv=a=>{const d=a.re*a.re+a.im*a.im;return C(a.re/d,-a.im/d);};
- function ipow(a,n){let z=C(1),w=a;for(let j=0;j<n;j++){z=mul(z,w);}return z;}
+ const div=(a,b)=>mul(a,inv(b));
+ function ipow(a,n){let z=C(1),w=a;for(let j=0;j<n;j++)z=mul(z,w);return z;}
+ function isRealInteger(s){return Math.abs(s.im)<=1e-12 && Math.abs(s.re-Math.round(s.re))<=1e-12;}
  function powMinus(a,s){
-   if(Number.isInteger(s) && s>0 && s<=8)return ipow(inv(a),s);
-   const r=Math.hypot(a.re,a.im),theta=Math.atan2(a.im,a.re),v=Math.exp(-s*Math.log(r)),p=-s*theta;
-   return C(v*Math.cos(p),v*Math.sin(p));
+   if(isRealInteger(s) && s.re>0 && s.re<=8)return ipow(inv(a),Math.round(s.re));
+   const r=Math.max(Math.hypot(a.re,a.im),1e-300),theta=Math.atan2(a.im,a.re);
+   const mag=Math.exp(-s.re*Math.log(r)+s.im*theta);
+   const phase=-s.im*Math.log(r)-s.re*theta;
+   return C(mag*Math.cos(phase),mag*Math.sin(phase));
+ }
+ function bernoulliValue(s,z){
+   if(Math.abs(s.im)>1e-12)return null;
+   if(s.re===0)return C(0.5-z.re,-z.im);
+   const z2=mul(z,z);
+   if(s.re===-1)return scale(add(add(z2,scale(z,-1)),C(1/6)),-0.5);
+   const z3=mul(z2,z);
+   if(s.re===-2)return scale(add(add(z3,scale(z2,-1.5)),scale(z,0.5)),-1/3);
+   return null;
  }
  function hurwitzZeta(s,z){
-   if(!Number.isFinite(s)||s<=1 || !Number.isFinite(z.re)||!Number.isFinite(z.im))throw new RangeError('Expected real s>1 and finite complex z');
-   const N=Math.max(0,Math.ceil(18-z.re)),w=C(z.re+N,z.im);
+   if(!Number.isFinite(s.re)||!Number.isFinite(s.im)||s.re<-2||s.re>4.5||Math.abs(s.im)>2||(!s.im&&s.re===1)||!Number.isFinite(z.re)||!Number.isFinite(z.im))throw new RangeError('Expected complex s in range and finite complex z');
+   const exact=bernoulliValue(s,z);
+   if(exact)return exact;
+   const target=s.re<1?10:18;
+   const N=Math.max(0,Math.ceil(target-z.re)),w=C(z.re+N,z.im);
    const inverseW=inv(w),inverseW2=mul(inverseW,inverseW);
-   let result=add(scale(powMinus(w,s-1),1/(s-1)),scale(powMinus(w,s),0.5));
-   let rising=s,power=powMinus(w,s+1);
+   let result=add(div(powMinus(w,C(s.re-1,s.im)),C(s.re-1,s.im)),scale(powMinus(w,s),0.5));
+   let rising=C(s.re,s.im),power=powMinus(w,C(s.re+1,s.im));
    for(let j=1;j<=8;j++){
-     result=add(result,scale(power,em[j-1]*rising));
+     result=add(result,scale(mul(rising,power),em[j-1]));
      power=mul(power,inverseW2);
-     rising*=(s+2*j-1)*(s+2*j);
+     rising=mul(rising,C(s.re+2*j-1,s.im));
+     rising=mul(rising,C(s.re+2*j,s.im));
    }
    for(let k=0;k<N;k++)result=add(result,powMinus(C(z.re+k,z.im),s));
    return result;
  }
  function evaluate(s,z){
-   const r=Math.round(z.re),singular=r<=0&&Math.abs(z.re-r)<=1e-13&&Math.abs(z.im)<=1e-13;
-   const integer=Math.abs(s-Math.round(s))<1e-10;
-   if(singular)return {kind:integer?'pole':'branch-point'};
-   if(!integer && z.re<0 && Math.abs(z.im)<=1e-13)return {kind:'branch-cut'};
+   const orderPole=Math.abs(s.re-1)<=1e-12&&Math.abs(s.im)<=1e-12;
+   if(orderPole)return {kind:'order-pole'};
+   const n=Math.round(z.re),singular=n<=0&&Math.abs(z.re-n)<=1e-13&&Math.abs(z.im)<=1e-13;
+   const integerReal=isRealInteger(s);
+   const entire=integerReal && (s.re===0||s.re===-1||s.re===-2);
+   if(singular && integerReal && s.re>0)return {kind:'pole'};
+   if(singular && !entire)return {kind:'branch-point'};
+   if(!entire && !integerReal && z.re<0 && Math.abs(z.im)<=1e-13)return {kind:'branch-cut'};
    const value=hurwitzZeta(s,z),abs=Math.hypot(value.re,value.im);
    return {kind:'finite',...value,logAbs:Math.log(abs),arg:Math.atan2(value.im,value.re)};
  }
- return {C,add,scale,mul,inv,powMinus,hurwitzZeta,evaluate};
+ return {C,add,sub,scale,mul,inv,div,powMinus,bernoulliValue,hurwitzZeta,evaluate,isRealInteger};
 })();
 
-// Hurwitz zeta explorer v1 — Observable 2.0 / standalone browser.
+// Hurwitz zeta explorer v4 — Observable 2.0 / standalone browser.
 // Relies only on HurwitzCore embedded above; no CDN dependencies.
 {
  const root = document.createElement('section');
@@ -53,19 +75,22 @@ const HurwitzCore = (() => {
  .pg-head span{color:var(--muted);font-size:12px}
  .pg-controls{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px 18px;margin-bottom:11px}
  .pg-functions{display:flex;flex-wrap:wrap;gap:5px}
- .hz-order{border:1px solid #e4f1ff15;background:#ffffff06;border-radius:12px;padding:12px 14px 10px;margin:0 0 11px}
- .hz-order-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:3px;gap:8px}
+ .hz-order{border:1px solid #e4f1ff15;background:#ffffff06;border-radius:12px;padding:12px 14px 11px;margin:0 0 11px}
+ .hz-order-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;gap:8px}
  .hz-order-top label{color:#c5d3db;font-size:12px;letter-spacing:.012em}
  .hz-order-value{font-variant-numeric:tabular-nums;font-size:19px;color:#eef3f7;font-weight:630}
- .hz-range{display:block;width:100%;margin:7px 0 0;accent-color:#a1dcd3;cursor:pointer;touch-action:pan-y}
- .hz-ticks{position:relative;height:16px;color:#8da4b4;font-size:10px;margin:0 1px 10px}
- .hz-ticks span{position:absolute;top:0;transform:translateX(-50%)}
- .hz-ticks span:first-child{transform:none}
- .hz-ticks span:last-child{transform:translateX(-100%)}
- .hz-presets{display:flex;align-items:center;justify-content:center;gap:5px;flex-wrap:wrap}
- .hz-preset{font-size:12px;min-width:49px;min-height:30px;padding:4px 10px;border:1px solid #e4f1ff23;border-radius:8px;background:#ffffff09;color:#cbd9e3;transition:background .13s,border-color .13s}
- .hz-preset[aria-pressed=true]{background:#e6eced;color:#1b2832;border-color:#e6eced;font-weight:630}
- .hz-preset:hover:not([aria-pressed=true]){background:#ffffff16}
+ .hz-swrap{display:flex;gap:12px;align-items:stretch;flex-wrap:wrap}
+ .hz-sbox{position:relative;flex:1 1 230px;min-width:220px;max-width:320px;border:1px solid #e4f1ff18;border-radius:10px;background:#ffffff05;padding:6px}
+ .hz-splane{display:block;width:100%;height:130px;border-radius:8px;cursor:crosshair;touch-action:none;background:linear-gradient(180deg,#243443 0%,#1a2630 100%)}
+ .hz-sdot{position:absolute;width:13px;height:13px;border:2px solid #fff;border-radius:50%;background:#162834cc;box-shadow:0 0 0 1px #14222a,0 1px 5px #000a;pointer-events:none;transform:translate(-50%,-50%)}
+ .hz-axis-label{position:absolute;font-size:10px;color:#9ab0bf;pointer-events:none}
+ .hz-axis-left{left:8px;top:8px}
+ .hz-axis-right{right:8px;bottom:8px}
+ .hz-axis-mid{left:50%;top:50%;transform:translate(-50%,-50%);color:#b8c8d2;background:#17232d99;padding:0 4px;border-radius:6px}
+ .hz-side{display:flex;flex-direction:column;justify-content:space-between;gap:10px;min-width:92px}
+ .hz-note{font-size:11px;color:#9cb1bf;line-height:1.35}
+ .hz-snap{white-space:nowrap;min-height:32px;padding:6px 10px;border-radius:8px;background:#ffffff10;color:#dfebf2;border:1px solid #e4f1ff24;font-size:12px}
+ .hz-snap:hover{background:#ffffff17}
  .hz-intro{color:#b2c2cd;font-size:12px}
  .pg-explorer :is(button,input,canvas):focus-visible{outline:2px solid #98d9cc;outline-offset:2px}
  .pg-markings{display:inline-flex;align-items:center;gap:7px;white-space:nowrap;color:#c5d0d8;font-size:12px;cursor:pointer;user-select:none}
@@ -76,6 +101,10 @@ const HurwitzCore = (() => {
  .pg-function[aria-pressed=true]{background:#e6eced;color:#192632;border-color:#e6eced;font-weight:630;box-shadow:0 2px 7px #0003}
  .pg-explorer :is(button,canvas,input):focus-visible{outline:2px solid #98d9cc;outline-offset:2px}
  .pg-frame{width:100%;aspect-ratio:1.48;position:relative;overflow:hidden;border:1px solid #eaf5ff23;border-radius:12px;background:#777d88;isolation:isolate}
+ .hz-exception{position:absolute;inset:0;display:none;z-index:5;align-items:center;justify-content:center;flex-direction:column;gap:5px;text-align:center;padding:22px;pointer-events:none;background:radial-gradient(ellipse at center,#354451 0%,#283440 100%);color:#edf3f7}
+ .hz-exception strong{font-size:clamp(18px,3vw,25px);font-weight:620}
+ .hz-exception span{font-size:12px;color:#c6d4df;max-width:340px}
+ .hz-exception.is-visible{display:flex}
  .pg-canvas{display:block;width:100%;height:100%;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;cursor:crosshair;outline-offset:-3px}
  .pg-guides{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:hidden}
  .pg-pin{position:absolute;width:13px;height:13px;border:2px solid #fff;border-radius:50%;background:#16283477;box-shadow:0 0 0 1px #14222a,0 1px 5px #000a;pointer-events:none;transform:translate(-50%,-50%);display:none}
@@ -91,27 +120,32 @@ const HurwitzCore = (() => {
  .pg-colorbar{display:block;width:100%;height:9px;border-radius:10px;border:1px solid #ffffff24}
  .pg-key-labels{display:flex;justify-content:space-between;font-size:10px;color:#b6c4ce;margin-top:3px}
  .pg-help{margin:9px 0 0;text-align:center;color:#91a4b3;font-size:11px}
- @media(max-width:700px){.hz-order{padding:9px 11px 8px}.hz-preset{min-height:32px;padding:5px 9px}.hz-order-value{font-size:18px}.pg-explorer{border-radius:13px}.pg-head{display:block}.pg-head span{display:block;margin-top:2px}.pg-function{padding:8px 13px;font-size:14px;min-height:40px}.pg-functions{gap:4px}.pg-frame{aspect-ratio:.94}.pg-description{font-size:11px}.pg-help{font-size:10px}.pg-values{font-size:11px}}
+ @media(max-width:700px){.hz-order{padding:9px 11px 9px}.hz-order-value{font-size:18px}.hz-swrap{display:block}.hz-sbox{max-width:none;min-width:0}.hz-splane{height:122px}.hz-side{flex-direction:row;align-items:center;justify-content:space-between;min-width:0;margin-top:9px}.hz-note{max-width:68%}.pg-explorer{border-radius:13px}.pg-head{display:block}.pg-head span{display:block;margin-top:2px}.pg-function{padding:8px 13px;font-size:14px;min-height:40px}.pg-functions{gap:4px}.pg-frame{aspect-ratio:.94}.pg-description{font-size:11px}.pg-help{font-size:10px}.pg-values{font-size:11px}}
  @media(prefers-reduced-motion:reduce){.pg-function{transition:none}}
  </style>
  <header class="pg-head"><h2>Hurwitz zeta</h2><span>ζ(s, z) in the complex z-plane</span></header>
- <div class="pg-controls"><span class="hz-intro">Vary real s · explore complex z</span><label class="pg-markings"><input class="pg-markings-toggle" type="checkbox" checked>Markings</label></div>
+ <div class="pg-controls"><span class="hz-intro">Choose complex s · explore complex z</span><label class="pg-markings"><input class="pg-markings-toggle" type="checkbox" checked>Markings</label></div>
  <div class="hz-order">
-  <div class="hz-order-top"><label for="hz-order-range">Order s</label><output class="hz-order-value" for="hz-order-range">2.00</output></div>
-  <input id="hz-order-range" class="hz-range" aria-label="Real order s" type="range" min="1.5" max="4.5" step="0.01" value="2.00">
-  <div class="hz-ticks"><span style="left:0%">1.5</span><span style="left:16.6667%">2</span><span style="left:50%">3</span><span style="left:83.3333%">4</span><span style="left:100%">4.5</span></div>
-  <div class="hz-presets" role="group" aria-label="Suggested orders">
-   <button class="hz-preset" type="button" data-s="2" aria-pressed="true" title="Double poles · trigamma">2</button>
-   <button class="hz-preset" type="button" data-s="2.5" aria-pressed="false" title="Fractional-order branch points">2½</button>
-   <button class="hz-preset" type="button" data-s="3" aria-pressed="false" title="Triple poles">3</button>
-   <button class="hz-preset" type="button" data-s="3.5" aria-pressed="false" title="Fractional-order branch points">3½</button>
-   <button class="hz-preset" type="button" data-s="4" aria-pressed="false" title="Fourth-order poles">4</button>
+  <div class="hz-order-top"><label>Order s</label><output class="hz-order-value">2 + 0i</output></div>
+  <div class="hz-swrap">
+   <div class="hz-sbox">
+    <canvas class="hz-splane" width="320" height="130" tabindex="0" role="img" aria-label="Complex order s selector. Drag the marker to choose real and imaginary parts of s."></canvas>
+    <span class="hz-sdot" aria-hidden="true"></span>
+    <span class="hz-axis-label hz-axis-left">Im s</span>
+    <span class="hz-axis-label hz-axis-right">Re s</span>
+    <span class="hz-axis-label hz-axis-mid">0</span>
+   </div>
+   <div class="hz-side">
+    <div class="hz-note">Drag in the s-plane to vary both <em>Re s</em> and <em>Im s</em>. Use the button below to return to the real axis.</div>
+    <button class="hz-snap" type="button">Im s = 0</button>
+   </div>
   </div>
  </div>
  <div class="pg-frame">
-  <canvas class="pg-canvas" tabindex="0" role="img" aria-label="Domain coloring of Hurwitz zeta for the selected real order s. Drag to pan, pinch or scroll to zoom, double-tap to zoom in, and tap to inspect complex values."></canvas>
+  <canvas class="pg-canvas" tabindex="0" role="img" aria-label="Domain coloring of Hurwitz zeta for the selected complex order s. Drag to pan, pinch or scroll to zoom, double-tap to zoom in, and tap to inspect complex values."></canvas>
   <svg class="pg-guides" aria-hidden="true"></svg>
   <span class="pg-pin" aria-hidden="true"></span>
+  <div class="hz-exception" role="status" aria-live="polite"><strong>Pole at s = 1</strong><span>ζ(s,z) diverges for every z. Move the order away from 1 to continue exploring.</span></div>
  </div>
  <div class="pg-bottom"><span class="pg-description" aria-live="polite"></span><button class="pg-zoom" type="button" title="Reset view" aria-label="Reset view"><b>1×</b><span>↺</span></button></div>
  <div class="pg-probe" aria-live="polite"><div class="pg-values"><span class="pg-k">z</span><span class="pg-z"></span><span class="pg-k">ζ(s,z)</span><span class="pg-f"></span></div><button class="pg-close" type="button" title="Clear point selection" aria-label="Clear point selection">×</button></div>
@@ -128,18 +162,62 @@ const HurwitzCore = (() => {
  const zEl=root.querySelector('.pg-z'),fEl=root.querySelector('.pg-f');
  const zoomText=root.querySelector('.pg-zoom b');
  const description=root.querySelector('.pg-description');
- const slider=root.querySelector('.hz-range');
+ const sPlane=root.querySelector('.hz-splane');
+ const sDot=root.querySelector('.hz-sdot');
+ const snapButton=root.querySelector('.hz-snap');
  const valueText=root.querySelector('.hz-order-value');
- const presets=[...root.querySelectorAll('.hz-preset')];
  const markingsToggle=root.querySelector('.pg-markings-toggle');
+ const exceptionOverlay=root.querySelector('.hz-exception');
  const HALF_HEIGHT=3.05, LOG_PERIOD=Math.log(7), MAX_ZOOM=3;
  const LIMITS={xmin:-10,xmax:5,ymin:-6,ymax:6};
- const state={s:2,centerX:-1.5,centerY:0,zoom:0,probe:null,markings:true};
- const isIntegerOrder=()=>Math.abs(state.s-Math.round(state.s))<1e-7;
+ const SRANGE={reMin:-2,reMax:4.5,imMin:-2,imMax:2};
+ const state={sRe:2,sIm:0,centerX:-1.5,centerY:0,zoom:0,probe:null,markings:true};
+ const currentS=()=>({re:state.sRe,im:state.sIm});
+ const isRealAxis=()=>Math.abs(state.sIm)<1e-7;
+ const isIntegerOrder=()=>isRealAxis()&&Math.abs(state.sRe-Math.round(state.sRe))<1e-7;
+ const isEntireOrder=()=>isIntegerOrder()&&(state.sRe===0||state.sRe===-1||state.sRe===-2);
+ const isOrderPole=()=>Math.abs(state.sRe-1)<1e-10&&Math.abs(state.sIm)<1e-10;
  const relation={2:'ζ(2,z) = ψ′(z)',3:'ζ(3,z) = −ψ″(z)/2',4:'ζ(4,z) = ψ‴(z)/6'};
  const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
  const frac=x=>x-Math.floor(x);
  const smoothstep=(a,b,x)=>{const t=clamp((x-a)/(b-a),0,1);return t*t*(3-2*t);};
+ function orderSpecialCode(s=currentS()){return Math.abs(s.im)<1e-10?(s.re===0?1:s.re===-1?2:s.re===-2?3:0):0;}
+ function formatS(s=currentS()){
+  const re=fmtReal(s.re), imAbs=fmtReal(Math.abs(s.im));
+  if(Math.abs(s.im)<1e-10)return re;
+  return `${re} ${s.im<0?'−':'+'} ${imAbs}i`;
+ }
+ function clampS(){state.sRe=clamp(Math.round(state.sRe*100)/100,SRANGE.reMin,SRANGE.reMax);state.sIm=clamp(Math.round(state.sIm*100)/100,SRANGE.imMin,SRANGE.imMax);} 
+ function selectorValueFromPoint(px,py){
+  const r=sPlane.getBoundingClientRect();
+  const x=clamp(px,0,r.width), y=clamp(py,0,r.height);
+  return {re:SRANGE.reMin + x/r.width*(SRANGE.reMax-SRANGE.reMin), im:SRANGE.imMax - y/r.height*(SRANGE.imMax-SRANGE.imMin)};
+ }
+ function selectorPointFromValue(s=currentS()){
+  const r=sPlane.getBoundingClientRect();
+  return {x:(s.re-SRANGE.reMin)/(SRANGE.reMax-SRANGE.reMin)*r.width, y:(SRANGE.imMax-s.im)/(SRANGE.imMax-SRANGE.imMin)*r.height};
+ }
+ function drawSPlane(){
+  const g=sPlane.getContext('2d'); if(!g) return;
+  const r=sPlane.getBoundingClientRect(); const dpr=Math.min(window.devicePixelRatio||1,2); const w=Math.max(120,Math.round(r.width*dpr)), h=Math.max(70,Math.round(r.height*dpr));
+  if(sPlane.width!==w||sPlane.height!==h){sPlane.width=w; sPlane.height=h;}
+  g.setTransform(dpr,0,0,dpr,0,0); g.clearRect(0,0,r.width,r.height);
+  g.fillStyle='#1e2c37'; g.fillRect(0,0,r.width,r.height);
+  g.strokeStyle='rgba(255,255,255,.08)'; g.lineWidth=1;
+  for(const x of [-2,0,2,4]){ const px=(x-SRANGE.reMin)/(SRANGE.reMax-SRANGE.reMin)*r.width; g.beginPath(); g.moveTo(px,.5); g.lineTo(px,r.height-.5); g.stroke(); }
+  for(const y of [-2,-1,0,1,2]){ const py=(SRANGE.imMax-y)/(SRANGE.imMax-SRANGE.imMin)*r.height; g.beginPath(); g.moveTo(.5,py); g.lineTo(r.width-.5,py); g.stroke(); }
+  g.strokeStyle='rgba(255,240,196,.28)';
+  const y0=(SRANGE.imMax-0)/(SRANGE.imMax-SRANGE.imMin)*r.height; g.beginPath(); g.moveTo(.5,y0); g.lineTo(r.width-.5,y0); g.stroke();
+  g.strokeStyle='rgba(241,244,252,.25)';
+  const x0=(0-SRANGE.reMin)/(SRANGE.reMax-SRANGE.reMin)*r.width; g.beginPath(); g.moveTo(x0,.5); g.lineTo(x0,r.height-.5); g.stroke();
+  g.fillStyle='rgba(180,198,208,.85)'; g.font='10px system-ui';
+  g.fillText('−2',4,r.height-5); g.fillText('0',x0+3,r.height-5); g.fillText('4.5',r.width-26,r.height-5);
+  g.fillText('+2i',4,11); g.fillText('−2i',4,r.height-10);
+  const pt=selectorPointFromValue();
+  sDot.style.left=`${pt.x+6}px`; sDot.style.top=`${pt.y+6}px`;
+ }
+ function setOrder(re,im){state.sRe=re;state.sIm=im;clampS();updateLabels();updateProbe();drawSPlane();interact();}
+ 
  let gl=null,program=null,glReady=false,ctx=null,raf=0,settleTimer=0,anim=0,stopped=false,lowRes=false,fbToken=0;
 
  // Preserve the four-phase OKLab palette used in the singularities gallery.
@@ -178,33 +256,42 @@ const HurwitzCore = (() => {
  void main(){gl_Position=vec4(a_vertex,0.0,1.0);}`;
  const fs=`#version 300 es
  precision highp float;
- uniform vec2 u_resolution,u_local_center;
- uniform float u_pitch,u_log_period,u_s;
- uniform int u_anchor,u_N,u_s_integer;
+ uniform vec2 u_resolution,u_local_center,u_s;
+ uniform float u_pitch,u_log_period;
+ uniform int u_anchor,u_N,u_s_integer,u_special;
  uniform sampler2D u_palette;
  out vec4 outColor;
  const float PI=3.141592653589793,TAU=6.283185307179586;
  const float E[8]=float[8](0.083333333333333,-0.001388888888889,0.000033068783069,-0.0000008267195767,0.000000020876756,-0.000000000528,0.00000000001338,-0.000000000000339);
- vec2 cmul(vec2 a,vec2 b){return vec2(a.x*b.x-a.y*b.y,a.x*b.y+a.y*b.x);}
+ vec2 cmul(vec2 a,vec2 b){return vec2(a.x*b.x-a.y*b.y,a.x*b.y+a.y*b.x);} 
+ vec2 cadd(vec2 a,vec2 b){return a+b;}
+ vec2 csub(vec2 a,vec2 b){return a-b;}
  vec2 cinv(vec2 a){float d=max(dot(a,a),1.e-28);return vec2(a.x,-a.y)/d;}
- vec2 ipow(vec2 a,int n){vec2 p=vec2(1.0,0.0);for(int i=0;i<7;i++){if(i>=n)break;p=cmul(p,a);}return p;}
- vec2 negativePower(vec2 a,float s){
-  if(u_s_integer==1 && abs(s-float(int(s+.5)))<.00005 && s<=7.0){return ipow(cinv(a),int(s+.5));}
-  float r=max(length(a),1.e-14),phase=-s*atan(a.y,a.x);
-  float mag=exp(clamp(-s*log(r),-70.0,70.0));
+ vec2 cdiv(vec2 a,vec2 b){return cmul(a,cinv(b));}
+ vec2 ipow(vec2 a,int n){vec2 p=vec2(1.0,0.0);for(int i=0;i<9;i++){if(i>=n)break;p=cmul(p,a);}return p;}
+ vec2 negativePower(vec2 a,vec2 s){
+  if(u_s_integer==1 && abs(s.y)<.00001 && s.x>0.0 && s.x<=8.0 && abs(s.x-float(int(s.x+.5)))<.00005){return ipow(cinv(a),int(s.x+.5));}
+  float r=max(length(a),1.e-14),theta=atan(a.y,a.x);
+  float mag=exp(clamp(-s.x*log(r)+s.y*theta,-70.0,70.0));
+  float phase=-s.y*log(r)-s.x*theta;
   return mag*vec2(cos(phase),sin(phase));
  }
  vec2 functionValue(vec2 z){
+  vec2 a=z+vec2(float(u_anchor),0.0);
+  if(u_special==1)return vec2(0.5,0.0)-a;
+  if(u_special==2){vec2 a2=cmul(a,a);return -.5*(a2-a+vec2(1.0/6.0,0.0));}
+  if(u_special==3){vec2 a2=cmul(a,a);return -(cmul(a2,a)-1.5*a2+0.5*a)/3.0;}
+  vec2 s=u_s;
   vec2 w=z+vec2(float(u_anchor+u_N),0.0);
-  float s=u_s;
   vec2 wi=cinv(w),w2=cmul(wi,wi);
-  vec2 outVal=negativePower(w,s-1.0)/(s-1.0)+.5*negativePower(w,s);
-  float rising=s;
-  vec2 power=negativePower(w,s+1.0);
+  vec2 outVal=cadd(cdiv(negativePower(w,csub(s,vec2(1.0,0.0))),csub(s,vec2(1.0,0.0))),0.5*negativePower(w,s));
+  vec2 rising=s;
+  vec2 power=negativePower(w,cadd(s,vec2(1.0,0.0)));
   for(int j=1;j<=8;j++){
-   outVal+=E[j-1]*rising*power;
+   outVal+=E[j-1]*cmul(rising,power);
    power=cmul(power,w2);
-   rising*=(s+float(2*j-1))*(s+float(2*j));
+   rising=cmul(rising,vec2(s.x+float(2*j-1),s.y));
+   rising=cmul(rising,vec2(s.x+float(2*j),s.y));
   }
   for(int k=0;k<48;k++){
    if(k>=u_N)break;
@@ -225,8 +312,8 @@ const HurwitzCore = (() => {
   float nearest=clamp(-floor(zz+.5),0.0,12.0);
   vec2 dz=z+vec2(float(u_anchor)+nearest,0.0);
   float dist=max(length(dz),1.e-8);
-  float detail=u_pitch*max(1.0,u_s)/dist;
-  float clear=1.0-smoothstep(.75,2.4,detail);
+  float detail=u_pitch*max(0.0,length(u_s))/dist;
+  float clear=(u_special>0)?1.0:1.0-smoothstep(.75,2.4,detail);
   vec3 col=texture(u_palette,vec2(fract(phi/TAU),.5)).rgb*tone;
   return clamp(mix(vec3(.57,.60,.64),col,clear),0.0,1.0);
  }
@@ -250,7 +337,7 @@ const HurwitzCore = (() => {
    g.texImage2D(g.TEXTURE_2D,0,g.RGBA,2048,1,0,g.RGBA,g.UNSIGNED_BYTE,palette);
    g.texParameteri(g.TEXTURE_2D,g.TEXTURE_MIN_FILTER,g.LINEAR);g.texParameteri(g.TEXTURE_2D,g.TEXTURE_MAG_FILTER,g.LINEAR);
    g.texParameteri(g.TEXTURE_2D,g.TEXTURE_WRAP_S,g.REPEAT);g.texParameteri(g.TEXTURE_2D,g.TEXTURE_WRAP_T,g.CLAMP_TO_EDGE);
-   u={};for(const name of ['resolution','local_center','pitch','log_period','anchor','N','s','s_integer','palette'])u[name]=g.getUniformLocation(p,'u_'+name);
+   u={};for(const name of ['resolution','local_center','pitch','log_period','anchor','N','s','s_integer','special','palette'])u[name]=g.getUniformLocation(p,'u_'+name);
    g.uniform1i(u.palette,0);
    gl=g;program=p;glReady=true;return true;
   }catch(err){console.warn('WebGL unavailable, using progressive Canvas rendering',err);return false;}
@@ -273,13 +360,16 @@ const HurwitzCore = (() => {
   clampCenter();interact();
  }
  function interact(){
+  // Invalidate the currently running progressive CPU image as soon as a new
+  // interaction starts, not one animation frame later.
+  fbToken++;
   lowRes=true;
   clearTimeout(settleTimer);
   settleTimer=setTimeout(()=>{lowRes=false;schedule();},170);
   schedule();
  }
  function drawGuides(){
-  if(!state.markings){svg.replaceChildren();return;}
+  if(!state.markings || isOrderPole()){svg.replaceChildren();return;}
   const {w,h}=sizeCSS(),q=pitchCSS();if(w<1||h<1)return;
   let html='';
   const ay=h/2+state.centerY/q;
@@ -289,7 +379,7 @@ const HurwitzCore = (() => {
   let step=1;
   if(q>0)step=Math.max(1,Math.ceil(34*q));
   for(let n=lo;n<=hi;n++){
-   if((Math.abs(n)%step)!==0)continue;
+   if(isEntireOrder() || (Math.abs(n)%step)!==0)continue;
    const px=w/2+(n-state.centerX)/q;
    if(px<8||px>w-8||ay<8||ay>h-14)continue;
    html+=`<circle cx="${px.toFixed(2)}" cy="${ay.toFixed(2)}" r="2" fill="#152632" stroke="#ffffff" stroke-opacity=".65" stroke-width=".85"/>`;
@@ -316,7 +406,8 @@ const HurwitzCore = (() => {
   showMarker();if(!state.probe){probeEl.style.display='none';return;}
   probeEl.style.display='flex';
   zEl.textContent=fmtComplex(state.probe);
-  const val=HurwitzCore.evaluate(state.s,state.probe);
+  const val=HurwitzCore.evaluate(currentS(),state.probe);
+  if(val.kind==='order-pole'){fEl.textContent='Pole at s = 1 (all z)';return;}
   if(val.kind==='pole'){fEl.textContent='Pole (undefined)';return;}
   if(val.kind==='branch-point'){fEl.textContent='Algebraic branch point';return;}
   if(val.kind==='branch-cut'){fEl.textContent='On the selected Hurwitz ζ branch cut';return;}
@@ -329,71 +420,106 @@ const HurwitzCore = (() => {
  function updateLabels(){
   const zoom=Math.pow(10,state.zoom);
   zoomText.textContent=(state.zoom>=2.999?'1,000':zoom<10?zoom.toFixed(state.zoom<.04?0:1):Math.round(zoom).toLocaleString('en-US'))+'×';
-  valueText.textContent=state.s.toFixed(2);
+  valueText.textContent=formatS();
   let caption;
-  if(isIntegerOrder()){
-    const n=Math.round(state.s);
+  if(isOrderPole())caption='s = 1 · simple pole in the order parameter, for every z';
+  else if(isEntireOrder() && state.sRe===0)caption='ζ(0,z) = ½ − z · entire linear polynomial';
+  else if(isEntireOrder() && state.sRe===-1)caption='ζ(−1,z) = −B₂(z)/2 · entire quadratic polynomial';
+  else if(isEntireOrder() && state.sRe===-2)caption='ζ(−2,z) = −B₃(z)/3 · entire cubic polynomial';
+  else if(isIntegerOrder() && state.sRe>1){
+    const n=Math.round(state.sRe);
     caption=`${relation[n]||'Integer order'} · poles of order ${n} at 0, −1, −2, …`;
-  } else caption=`Fractional order ${state.s.toFixed(2)} · branch points at 0, −1, −2, …`;
+  } else if(!isRealAxis())caption=`s = ${formatS()} · complex order with spiral branch structure`;
+  else if(state.sRe<0)caption=`Order ${state.sRe.toFixed(2)} · bounded algebraic branch points`;
+  else if(Math.abs(state.sRe-1)<0.11)caption=`Near s = 1 · the global 1/(s−1) term dominates`;
+  else caption=`Order ${state.sRe.toFixed(2)} · divergent algebraic branch points`;
   description.textContent=caption;
-  presets.forEach(b=>b.setAttribute('aria-pressed',String(Math.abs(Number(b.dataset.s)-state.s)<1e-8)));
+  exceptionOverlay.classList.toggle('is-visible',isOrderPole());
  }
+ // The visible Canvas stays at its presentation resolution during slider motion.
+ // Preview-resolution changes affect only an offscreen working image, so a resize
+ // cannot erase the last complete frame while the next frame is being computed.
  function resize(){
   const {w:cssW,h:cssH}=sizeCSS();if(cssW<1||cssH<1)return false;
-  const maxW=glReady?(lowRes?540:1220):(lowRes?270:550),maxH=glReady?(lowRes?530:900):(lowRes?290:590);
-  const dpr=Math.min(window.devicePixelRatio||1,lowRes?1.0:1.55);
+  const maxW=glReady?(lowRes?540:1220):550;
+  const maxH=glReady?(lowRes?530:900):590;
+  const dpr=Math.min(window.devicePixelRatio||1,glReady?(lowRes?1.0:1.55):1.55);
   let w=cssW*dpr,h=cssH*dpr,scale=Math.min(1,maxW/w,maxH/h);
   w=Math.max(2,Math.round(w*scale));h=Math.max(2,Math.round(h*scale));
   if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h;return true;}
   return false;
  }
- function shadeCPU(x,y,pitch){
-  const val=HurwitzCore.evaluate(state.s,{re:x,im:y});
+ // The CPU fallback uses this independently sampled snapshot, never live slider
+ // state, to prevent one frame from mixing different parameter values.
+ function shadeCPU(x,y,pitch,snapshot){
+  const val=HurwitzCore.evaluate(snapshot.s,{re:x,im:y});
   if(val.kind!=='finite')return [108,110,120];
   const q=clamp(val.logAbs,-200,200)/LOG_PERIOD+.5;
   const saw=frac(q),aa=.02;
   const softened=saw>1-aa?saw-smoothstep(1-aa,1,saw):saw;
   const tone=1.09-.36*softened,base=paletteSample(val.arg);
   const nearest=clamp(Math.round(-x),0,10),dist=Math.hypot(x+nearest,y);
-  const dphi=pitch*state.s/Math.max(dist,1e-8);
-  const clear=1-smoothstep(.75,2.4,dphi);
+  const dphi=pitch*Math.max(0,Math.hypot(snapshot.s.re,snapshot.s.im))/Math.max(dist,1e-8);
+  const entire=Math.abs(snapshot.s.im)<1e-10&&(snapshot.s.re===0||snapshot.s.re===-1||snapshot.s.re===-2);
+  const clear=entire?1:1-smoothstep(.75,2.4,dphi);
   return base.map((v,i)=>v*tone*clear+[145,153,163][i]*(1-clear));
  }
  function renderCPU(){
   const serial=++fbToken;
-  const g=ctx||(ctx=canvas.getContext('2d',{alpha:false}));
-  const w=canvas.width,h=canvas.height,pitch=2*HALF_HEIGHT*Math.pow(10,-state.zoom)/h;
-  const img=g.createImageData(w,h),data=img.data;
+  const visible=ctx||(ctx=canvas.getContext('2d',{alpha:false}));
+  if(!visible)return;
+  const snapshot={s:currentS(),centerX:state.centerX,centerY:state.centerY,zoom:state.zoom};
+  const reduction=lowRes?Math.min(1,270/canvas.width,290/canvas.height):1;
+  const w=Math.max(2,Math.round(canvas.width*reduction));
+  const h=Math.max(2,Math.round(canvas.height*reduction));
+  const pitch=2*HALF_HEIGHT*Math.pow(10,-snapshot.zoom)/h;
+  const back=document.createElement('canvas');back.width=w;back.height=h;
+  const backContext=back.getContext('2d',{alpha:false});
+  if(!backContext)return;
+  const img=backContext.createImageData(w,h),data=img.data;
   let yy=0;
   function rows(){
    if(stopped||serial!==fbToken)return;
-   const t0=performance.now(),yStart=yy;
+   const t0=performance.now();
    while(yy<h && performance.now()-t0<12){
     for(let xx=0;xx<w;xx++){
-     const x=state.centerX+(xx+.5-w/2)*pitch;
-     const y=state.centerY+(h/2-yy-.5)*pitch;
-     const col=shadeCPU(x,y,pitch),i=4*(yy*w+xx);
+     const x=snapshot.centerX+(xx+.5-w/2)*pitch;
+     const y=snapshot.centerY+(h/2-yy-.5)*pitch;
+     const col=shadeCPU(x,y,pitch,snapshot),i=4*(yy*w+xx);
      data[i]=col[0];data[i+1]=col[1];data[i+2]=col[2];data[i+3]=255;
     }
     yy++;
    }
-   g.putImageData(img,0,0,0,yStart,w,yy-yStart);
-   if(yy<h)requestAnimationFrame(rows);
+   if(yy<h){requestAnimationFrame(rows);return;}
+   // Present only a fully computed, still-current frame. This atomic swap
+   // removes the horizontal join between old and new s values.
+   if(stopped||serial!==fbToken)return;
+   backContext.putImageData(img,0,0);
+   if(stopped||serial!==fbToken)return;
+   visible.imageSmoothingEnabled=true;
+   visible.imageSmoothingQuality='high';
+   visible.drawImage(back,0,0,canvas.width,canvas.height);
   }
   requestAnimationFrame(rows);
  }
  function render(){
   raf=0;if(stopped)return;
   resize();
-  if(glReady){
+  if(isOrderPole()){
+   fbToken++;
+   // No domain-colored image exists at the global pole in the parameter s.
+   if(glReady){gl.viewport(0,0,canvas.width,canvas.height);gl.clearColor(.20,.25,.30,1);gl.clear(gl.COLOR_BUFFER_BIT);}
+   else {const g=ctx||(ctx=canvas.getContext('2d',{alpha:false}));g.fillStyle='#33404d';g.fillRect(0,0,canvas.width,canvas.height);}
+  } else if(glReady){
    const {w,h}=sizeCSS(),worldMin=state.centerX-(w/h)*HALF_HEIGHT*Math.pow(10,-state.zoom);
-   const N=clamp(Math.ceil(18-worldMin),0,46),anchor=Math.round(state.centerX);
+   const target=state.sRe<1?10:18;
+   const N=clamp(Math.ceil(target-worldMin),0,46),anchor=Math.round(state.centerX);
    gl.viewport(0,0,canvas.width,canvas.height);gl.useProgram(program);
    gl.uniform2f(u.resolution,canvas.width,canvas.height);
    gl.uniform2f(u.local_center,state.centerX-anchor,state.centerY);
    gl.uniform1f(u.pitch,2*HALF_HEIGHT*Math.pow(10,-state.zoom)/canvas.height);
    gl.uniform1f(u.log_period,LOG_PERIOD);
-   gl.uniform1i(u.anchor,anchor);gl.uniform1i(u.N,N);gl.uniform1f(u.s,state.s);gl.uniform1i(u.s_integer,isIntegerOrder()?1:0);
+   gl.uniform1i(u.anchor,anchor);gl.uniform1i(u.N,N);gl.uniform2f(u.s,state.sRe,state.sIm);gl.uniform1i(u.s_integer,isIntegerOrder()?1:0);gl.uniform1i(u.special,orderSpecialCode());
    gl.drawArrays(gl.TRIANGLE_STRIP,0,4);
   } else renderCPU();
   drawGuides();showMarker();updateLabels();
@@ -418,16 +544,17 @@ const HurwitzCore = (() => {
   }
   anim=requestAnimationFrame(step);
  }
- markingsToggle.addEventListener('change',()=>{
-  state.markings=markingsToggle.checked;
-  drawGuides();
- });
- function chooseOrder(v){
-  state.s=clamp(Math.round(Number(v)*100)/100,1.5,4.5);
-  slider.value=String(state.s);updateLabels();updateProbe();interact();
- }
- slider.addEventListener('input',()=>chooseOrder(slider.value));
- presets.forEach(button=>button.addEventListener('click',()=>chooseOrder(button.dataset.s)));
+ markingsToggle.addEventListener('change',()=>{state.markings=markingsToggle.checked;drawGuides();});
+ snapButton.addEventListener('click',()=>setOrder(state.sRe,0));
+ function refreshSelectorOnly(){updateLabels();updateProbe();drawSPlane();interact();}
+ let sPointerId=null;
+ function selectorScreen(e){const r=sPlane.getBoundingClientRect();return {x:e.clientX-r.left,y:e.clientY-r.top};}
+ function selectorApply(e){const p=selectorScreen(e),v=selectorValueFromPoint(p.x,p.y); state.sRe=v.re; state.sIm=v.im; clampS(); refreshSelectorOnly();}
+ sPlane.addEventListener('pointerdown',e=>{e.preventDefault();sPointerId=e.pointerId;sPlane.setPointerCapture(e.pointerId);selectorApply(e);});
+ sPlane.addEventListener('pointermove',e=>{if(e.pointerId===sPointerId)selectorApply(e);});
+ function endSelector(e){if(e.pointerId===sPointerId){sPointerId=null;}}
+ sPlane.addEventListener('pointerup',endSelector); sPlane.addEventListener('pointercancel',endSelector);
+ sPlane.addEventListener('keydown',e=>{const step=e.shiftKey?0.25:0.05; if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key)){e.preventDefault(); if(e.key==='ArrowLeft') state.sRe-=step; if(e.key==='ArrowRight') state.sRe+=step; if(e.key==='ArrowUp') state.sIm+=step; if(e.key==='ArrowDown') state.sIm-=step; clampS(); refreshSelectorOnly();}});
  root.querySelector('.pg-zoom').addEventListener('click',()=>{
   cancelAnimation();const {w,h}=sizeCSS();
   // Reset both position and magnification.
@@ -503,11 +630,11 @@ const HurwitzCore = (() => {
  const ro=typeof ResizeObserver!=='undefined'?new ResizeObserver(schedule):null;
  ro?.observe(frameEl);
  const windowResize=()=>schedule();window.addEventListener('resize',windowResize);
- canvas.addEventListener('webglcontextlost',e=>{e.preventDefault();glReady=false;});
+ canvas.addEventListener('webglcontextlost',e=>{e.preventDefault();glReady=false;fbToken++;});
  canvas.addEventListener('webglcontextrestored',()=>{initGL();schedule();});
  initGL();schedule();updateProbe();
  if(typeof invalidation!=='undefined')invalidation.then(()=>{
-  stopped=true;cancelAnimation();clearTimeout(settleTimer);clearTap();
+  stopped=true;fbToken++;cancelAnimation();clearTimeout(settleTimer);clearTap();
   if(raf)cancelAnimationFrame(raf);ro?.disconnect();window.removeEventListener('resize',windowResize);
  });
 }
