@@ -1,4 +1,4 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Hurwitz Zeta · Interactive Explorer</title><style>html,body{margin:0;min-height:100%;background:#0c141e;color:#e9eef3}body{box-sizing:border-box;padding:clamp(8px,2.5vw,30px)}#app{max-width:990px;margin:0 auto}</style></head><body><main id="app"></main><script>
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Hurwitz Zeta · Interactive Explorer v5</title><style>html,body{margin:0;min-height:100%;background:#0c141e;color:#e9eef3}body{box-sizing:border-box;padding:clamp(8px,2.5vw,30px)}#app{max-width:990px;margin:0 auto}</style></head><body><main id="app"></main><script>
 // Hurwitz numerical core v3. Complex s with Re s in [-2,4.5], Im s in [-2,2], excluding s = 1.
 // Euler–Maclaurin + recurrence; standalone, reusable point evaluator.
 const HurwitzCore = (() => {
@@ -62,7 +62,7 @@ const HurwitzCore = (() => {
  return {C,add,sub,scale,mul,inv,div,powMinus,bernoulliValue,hurwitzZeta,evaluate,isRealInteger};
 })();
 
-// Hurwitz zeta explorer v4 — Observable 2.0 / standalone browser.
+// Hurwitz zeta explorer v5 — Observable 2.0 / standalone browser.
 // Relies only on HurwitzCore embedded above; no CDN dependencies.
 {
  const root = document.createElement('section');
@@ -262,7 +262,7 @@ const HurwitzCore = (() => {
  uniform sampler2D u_palette;
  out vec4 outColor;
  const float PI=3.141592653589793,TAU=6.283185307179586;
- const float E[8]=float[8](0.083333333333333,-0.001388888888889,0.000033068783069,-0.0000008267195767,0.000000020876756,-0.000000000528,0.00000000001338,-0.000000000000339);
+ const float E[10]=float[10](0.0833333333333333,-0.00138888888888889,0.0000330687830687831,-0.000000826719576719577,0.0000000208767569878681,-0.000000000528419013868749,0.0000000000133825365306847,-0.000000000000338968029632258,0.00000000000000858606205627785,-0.000000000000000217486869855806);
  vec2 cmul(vec2 a,vec2 b){return vec2(a.x*b.x-a.y*b.y,a.x*b.y+a.y*b.x);} 
  vec2 cadd(vec2 a,vec2 b){return a+b;}
  vec2 csub(vec2 a,vec2 b){return a-b;}
@@ -287,7 +287,7 @@ const HurwitzCore = (() => {
   vec2 outVal=cadd(cdiv(negativePower(w,csub(s,vec2(1.0,0.0))),csub(s,vec2(1.0,0.0))),0.5*negativePower(w,s));
   vec2 rising=s;
   vec2 power=negativePower(w,cadd(s,vec2(1.0,0.0)));
-  for(int j=1;j<=8;j++){
+  for(int j=1;j<=10;j++){
    outVal+=E[j-1]*cmul(rising,power);
    power=cmul(power,w2);
    rising=cmul(rising,vec2(s.x+float(2*j-1),s.y));
@@ -512,7 +512,11 @@ const HurwitzCore = (() => {
    else {const g=ctx||(ctx=canvas.getContext('2d',{alpha:false}));g.fillStyle='#33404d';g.fillRect(0,0,canvas.width,canvas.height);}
   } else if(glReady){
    const {w,h}=sizeCSS(),worldMin=state.centerX-(w/h)*HALF_HEIGHT*Math.pow(10,-state.zoom);
-   const target=state.sRe<1?10:18;
+   // For Re(s)<1, a shorter Euler–Maclaurin shift greatly reduces
+   // cancellation in single-precision WebGL, particularly for complex s
+   // in the half-plane opposite to the sign of Im(s).
+   // Ten Bernoulli corrections preserve accuracy with the shorter shift.
+   const target=state.sRe<1?5:18;
    const N=clamp(Math.ceil(target-worldMin),0,46),anchor=Math.round(state.centerX);
    gl.viewport(0,0,canvas.width,canvas.height);gl.useProgram(program);
    gl.uniform2f(u.resolution,canvas.width,canvas.height);
