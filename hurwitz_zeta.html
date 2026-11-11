@@ -1,4 +1,4 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Hurwitz zeta · unified exploration</title><style>
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Hurwitz ζ(s,z) · unified exploration</title><style>
 :root{color-scheme:dark;--bg:#0c141e;--fg:#e9eef3;--line:#e4f1ff24;--accent:#9ddacc}
 *{box-sizing:border-box}
 html,body{margin:0;min-height:100%;background:#0c141e;color:var(--fg);font-family:system-ui,-apple-system,'Segoe UI',sans-serif}
@@ -58,15 +58,47 @@ body{padding:clamp(5px,1.5vw,16px)}
  #unified .hz-order,#unified .hzs-controls{margin-bottom:7px!important;padding:5px 8px!important}
  #unified .pg-bottom,#unified .hzs-bottom{padding-top:4px!important}
 }
+
+/* Shared compact header and legend: no wasted vertical row on a phone. */
+#unified .u-bar{display:flex;align-items:center;flex-wrap:nowrap;gap:7px;margin-bottom:8px}
+#unified .u-title{white-space:nowrap;min-width:0;margin-right:auto;font-size:clamp(16px,2.15vw,24px)}
+#unified .u-tabbar{display:flex;flex:0 0 auto;gap:3px;margin:0;padding:3px;border-radius:9px}
+#unified .u-tab{font-size:12px;min-height:31px;min-width:64px;padding:5px 8px}
+#unified .u-settings-toggle{height:34px;width:34px}
+#unified .u-menu{top:48px}
+#unified :is(.pg-bottom,.hzs-bottom){display:none!important}
+#unified :is(.pg-frame>.pg-zoom,.hzs-frame>.hzs-reset){
+ position:absolute;right:9px;bottom:9px;z-index:25;
+ display:inline-flex;align-items:center;justify-content:center;
+ margin:0;min-height:31px;border:1px solid #dfecf65a;
+ border-radius:8px;background:#132536dd;color:#f0f5f8;
+ padding:5px 10px;box-shadow:0 2px 9px #0006;
+ cursor:pointer;backdrop-filter:blur(5px);font-size:12px;
+}
+#unified :is(.pg-key,.hzs-legend){position:relative;padding-left:40px!important;max-width:338px!important}
+#unified :is(.pg-key,.hzs-legend)::before{
+ content:'phase';position:absolute;left:0;top:-2px;font-size:11px;
+ font-weight:500;color:#b6cbd6;
+}
+#unified.u-modulus :is(.pg-key,.hzs-legend)::before{display:none}
+#unified .hz-sbox{position:relative}
+#unified .hz-sdot{width:13px;height:13px}
+@media (max-width:700px){
+ #unified .u-bar{gap:5px;margin-bottom:6px}
+ #unified .u-title{font-size:clamp(16px,4.6vw,19px);letter-spacing:-.035em}
+ #unified .u-tab{min-width:58px;font-size:11px;padding:5px 6px;min-height:30px}
+ #unified .u-settings-toggle{width:31px;height:31px}
+ #unified :is(.pg-key,.hzs-legend){max-width:316px!important}
+}
 </style></head><body>
 <main id="unified" class="u-combined">
- <header class="u-bar"><h1 class="u-title">Hurwitz zeta</h1><button type="button" id="u-settings-button" class="u-settings-toggle" aria-expanded="false" aria-controls="u-menu" aria-label="Display settings" title="Display settings">⚙</button></header>
- <nav class="u-tabbar" role="tablist" aria-label="Variable to explore"><button type="button" class="u-tab" role="tab" aria-selected="true" aria-controls="u-pane-z" id="u-tab-z">Vary z</button><button type="button" class="u-tab" role="tab" aria-selected="false" aria-controls="u-pane-s" id="u-tab-s">Vary s</button></nav>
+ <header class="u-bar"><h1 class="u-title">Hurwitz ζ(s,z)</h1><nav class="u-tabbar" role="tablist" aria-label="Variable to explore"><button type="button" class="u-tab" role="tab" aria-selected="true" aria-controls="u-pane-z" id="u-tab-z">Vary z</button><button type="button" class="u-tab" role="tab" aria-selected="false" aria-controls="u-pane-s" id="u-tab-s">Vary s</button></nav><button type="button" id="u-settings-button" class="u-settings-toggle" aria-expanded="false" aria-controls="u-menu" aria-label="Display settings" title="Display settings">⚙</button></header>
  <div id="u-pane-z" class="u-pane" role="tabpanel" aria-labelledby="u-tab-z"></div>
  <div id="u-pane-s" class="u-pane" role="tabpanel" aria-labelledby="u-tab-s" hidden></div>
  <section id="u-menu" class="u-menu" role="group" aria-label="Display settings" hidden>
    <h2 class="u-menu-title">Display</h2>
-   <label class="u-option"><input id="u-mark" type="checkbox">Markings</label><hr>
+   <label class="u-option"><input id="u-mark" type="checkbox">Axes &amp; coordinates</label>
+   <label class="u-option"><input id="u-features" type="checkbox">Poles &amp; branch cuts</label><hr>
    <p class="u-group-label">Domain coloring</p>
    <label class="u-option"><input type="radio" name="u-color" value="combined" checked>Combined</label>
    <label class="u-option"><input type="radio" name="u-color" value="phase">Phase only</label>
@@ -289,7 +321,7 @@ const HurwitzCore = (() => {
  const HALF_HEIGHT=3.05, LOG_PERIOD=Math.log(7), MAX_ZOOM=3;
  const LIMITS={xmin:-10,xmax:5,ymin:-6,ymax:6};
  const SRANGE={reMin:-2,reMax:4.5,imMin:-2,imMax:2};
- const state={sRe:2,sIm:0,centerX:-1.5,centerY:0,zoom:0,probe:null,markings:true,realLock:false};
+ const state={sRe:2,sIm:0,centerX:-1.5,centerY:0,zoom:0,probe:null,markings:false,features:false,realLock:false};
  const currentS=()=>({re:state.sRe,im:state.sIm});
  const isRealAxis=()=>Math.abs(state.sIm)<1e-7;
  const isIntegerOrder=()=>isRealAxis()&&Math.abs(state.sRe-Math.round(state.sRe))<1e-7;
@@ -329,10 +361,14 @@ const HurwitzCore = (() => {
   g.strokeStyle='rgba(241,244,252,.25)';
   const x0=(0-SRANGE.reMin)/(SRANGE.reMax-SRANGE.reMin)*r.width; g.beginPath(); g.moveTo(x0,.5); g.lineTo(x0,r.height-.5); g.stroke();
   g.fillStyle='rgba(180,198,208,.85)'; g.font='10px system-ui';
+  // Concise selector labels, avoiding overlapping -2 and -2i in the compact layout.
   g.fillText('−2',4,r.height-5); g.fillText('0',x0+3,r.height-5); g.fillText('4.5',r.width-26,r.height-5);
-  g.fillText('+2i',4,11); g.fillText('−2i',4,r.height-10);
+  g.fillText('Im s ↑',4,11);
   const pt=selectorPointFromValue();
-  sDot.style.left=`${pt.x+6}px`; sDot.style.top=`${pt.y+6}px`;
+  const box=sDot.parentElement.getBoundingClientRect();
+  // Exact canvas-to-parent offset: the unified layout removes the original 6px padding.
+  sDot.style.left=`${r.left-box.left+pt.x}px`;
+  sDot.style.top=`${r.top-box.top+pt.y}px`;
  }
  function setOrder(re,im){state.sRe=re;state.sIm=state.realLock?0:im;clampS();updateLabels();updateProbe();drawSPlane();interact();}
  
@@ -655,27 +691,50 @@ const HurwitzCore = (() => {
   return `<g><rect x="${left.toFixed(2)}" y="${(y-height/2).toFixed(2)}" width="${width}" height="${height}" rx="4" fill="#112633" fill-opacity=".83"/><text x="${(left+width/2).toFixed(2)}" y="${(y+3.8).toFixed(2)}" text-anchor="middle" font-size="${fontSize}" font-weight="500" font-family="system-ui,sans-serif" fill="#eaf2f7">${label}</text></g>`;
  }
  function drawGuides(){
-  if(!state.markings || isOrderPole()){svg.replaceChildren();return;}
+  if((!state.markings&&!state.features)||isOrderPole()){svg.replaceChildren();return;}
   const {w,h}=sizeCSS(),q=pitchCSS();if(w<1||h<1)return;
   let html='';
-  const ay=h/2+state.centerY/q;
-  if(ay>-8&&ay<h+8)html+=`<line x1="0" y1="${ay.toFixed(2)}" x2="${w}" y2="${ay.toFixed(2)}" stroke="#f1f4fc" stroke-opacity=".20" stroke-width=".75"/>`;
+  const xAxisY=h/2+state.centerY/q;
+  const yAxisX=w/2-state.centerX/q;
   const xlo=state.centerX-w*q/2,xhi=state.centerX+w*q/2;
-  const lo=Math.max(-10,Math.ceil(xlo)),hi=Math.min(0,Math.floor(xhi));
-  const step=integerMarkStep(Math.max(q*65,(xhi-xlo)/9));
-  for(let n=lo;n<=hi;n++){
-   if(isEntireOrder() || Math.abs(n)%step!==0)continue;
-   const px=w/2+(n-state.centerX)/q;
-   if(px<8||px>w-8||ay<8||ay>h-19)continue;
-   const label=n===0?'0':'−'+Math.abs(n),labelWidth=Math.ceil(11*.64*label.length+13);
-   const rightSide=px+6+labelWidth<w-4;
-   if(!rightSide&&px-6-labelWidth<4)continue;
-   html+=`<circle cx="${px.toFixed(2)}" cy="${ay.toFixed(2)}" r="2.2" fill="#152632" stroke="#ffffff" stroke-opacity=".73" stroke-width="1"/>`;
-   html+=poleAxisLabel(n,rightSide?px+6:px-6,ay+14,rightSide?'left':'right');
+  const ymin=state.centerY-h*q/2,ymax=state.centerY+h*q/2;
+  if(state.markings){
+   // Axes and tick labels are a coordinate system, not a declaration of singularities.
+   if(xAxisY>=0&&xAxisY<=h)html+=`<line x1="0" y1="${xAxisY.toFixed(2)}" x2="${w}" y2="${xAxisY.toFixed(2)}" stroke="#edf7ff" stroke-opacity=".35" stroke-width=".85"/>`;
+   if(yAxisX>=0&&yAxisX<=w)html+=`<line x1="${yAxisX.toFixed(2)}" y1="0" x2="${yAxisX.toFixed(2)}" y2="${h}" stroke="#edf7ff" stroke-opacity=".35" stroke-width=".85"/>`;
+   const stepX=integerMarkStep(Math.max(q*67,(xhi-xlo)/9));
+   for(let k=Math.ceil(xlo/stepX);k<=Math.floor(xhi/stepX);k++){
+     const n=k*stepX,px=w/2+(n-state.centerX)/q;
+     if(px<19||px>w-19)continue;
+     const label=String(n).replace('-','−'),lw=Math.ceil(11*.64*label.length+13);
+     html+=`<line x1="${px.toFixed(2)}" y1="${h-3}" x2="${px.toFixed(2)}" y2="${h-7}" stroke="#edf7ff" stroke-opacity=".65"/>`;
+     html+=`<g><rect x="${(Math.max(3,Math.min(w-lw-3,px-lw/2))).toFixed(2)}" y="${h-26}" width="${lw}" height="18" rx="4" fill="#102431" fill-opacity=".82"/><text x="${(Math.max(3,Math.min(w-lw-3,px-lw/2))+lw/2).toFixed(2)}" y="${h-13}" font-size="11" font-weight="500" text-anchor="middle" fill="#eaf2f7">${label}</text></g>`;
+   }
+   const stepY=integerMarkStep(Math.max(q*65,(ymax-ymin)/9));
+   for(let k=Math.ceil(ymin/stepY);k<=Math.floor(ymax/stepY);k++){
+     const n=k*stepY,py=h/2+(state.centerY-n)/q;
+     if(py<15||py>h-34)continue;
+     const label=(n===0?'0':String(n).replace('-','−')+'i');
+     const lw=Math.ceil(11*.64*label.length+13);
+     html+=`<g><rect x="6" y="${(py-9).toFixed(2)}" width="${lw}" height="18" rx="4" fill="#102431" fill-opacity=".82"/><text x="${(6+lw/2).toFixed(2)}" y="${(py+3.8).toFixed(2)}" font-size="11" font-weight="500" text-anchor="middle" fill="#eaf2f7">${label}</text></g>`;
+   }
   }
-  if(!isIntegerOrder() && ay>-1&&ay<h+1){
-   const limit=Math.min(w,w/2+(-state.centerX)/q);
-   if(limit>0)html+=`<line x1="0" y1="${ay.toFixed(2)}" x2="${limit}" y2="${ay.toFixed(2)}" stroke="#fff0c4" stroke-opacity=".8" stroke-width="1.7" stroke-dasharray="5 4"/>`;
+  if(state.features){
+   // Actual poles, when present, are independent of coordinate ticks.
+   const lo=Math.max(-10,Math.ceil(xlo)),hi=Math.min(0,Math.floor(xhi));
+   const step=integerMarkStep(Math.max(q*68,(xhi-xlo)/9));
+   if(!isEntireOrder() && !isIntegerOrder() && xAxisY>=0&&xAxisY<=h){
+     const limit=Math.max(0,Math.min(w,yAxisX));
+     if(limit>0)html+=`<line x1="0" y1="${xAxisY.toFixed(2)}" x2="${limit.toFixed(2)}" y2="${xAxisY.toFixed(2)}" stroke="#fff0c4" stroke-opacity=".85" stroke-width="1.65" stroke-dasharray="5 4"/>`;
+   }
+   if(((isIntegerOrder() && state.sRe>1) || !isIntegerOrder()) && xAxisY>9&&xAxisY<h-26){
+     for(let n=lo;n<=hi;n++){
+       if(Math.abs(n)%step!==0)continue;
+       const px=w/2+(n-state.centerX)/q;
+       if(px<12||px>w-12)continue;
+       html+=`<circle cx="${px.toFixed(2)}" cy="${xAxisY.toFixed(2)}" r="2.5" fill="#142b36" stroke="#fff1bc" stroke-width="1"/>`;
+     }
+   }
   }
   svg.setAttribute('viewBox',`0 0 ${w} ${h}`);svg.innerHTML=html;
  }
@@ -802,6 +861,11 @@ const HurwitzCore = (() => {
    const pitch=2*HALF_HEIGHT*Math.pow(10,-snap.zoom)/h;
    return {re:snap.centerX+(x+0.5-w/2)*pitch,im:snap.centerY+(h/2-y-0.5)*pitch};
  }
+ // On touch-sized displays prefer the verified double-precision reference
+ // renderer. Some mobile GPUs incorrectly sample the R16UI/RGBA32F atlas
+ // near z-plane singularities; we must not replace a valid preview with
+ // those invalid tiles. This path is asynchronous and preserves the preview.
+ const mobileReference=()=>window.matchMedia('(pointer:coarse)').matches && canvas.getBoundingClientRect().width<820;
  // GPU Taylor patch atlas. Every coefficient and corner check is computed
  // in double precision; each displayed pixel uses a GPU Horner evaluation.
  function atlasMatchesView(){
@@ -985,7 +1049,7 @@ const HurwitzCore = (() => {
    const token=refJob;
    refWait=setTimeout(()=>{
      if(stopped||token!==refJob)return;
-     if(glReady && taylorProgram)runGpuTaylorJob(token);
+     if(glReady && taylorProgram && !mobileReference())runGpuTaylorJob(token);
      else runReferenceJob(token);
    },180);
  }
@@ -1137,7 +1201,7 @@ const HurwitzCore = (() => {
    if(glReady){gl.viewport(0,0,canvas.width,canvas.height);gl.clearColor(.20,.25,.30,1);gl.clear(gl.COLOR_BUFFER_BIT);}
    else {const g=ctx||(ctx=canvas.getContext('2d',{alpha:false}));g.fillStyle='#33404d';g.fillRect(0,0,canvas.width,canvas.height);}
   } else if(glReady){
-   if(atlasMatchesView()){
+   if(!mobileReference() && atlasMatchesView()){
      renderTaylorGPU();
      drawGuides();showMarker();updateLabels();
      return;
@@ -1180,6 +1244,7 @@ const HurwitzCore = (() => {
   anim=requestAnimationFrame(step);
  }
  markingsToggle.addEventListener('change',()=>{state.markings=markingsToggle.checked;drawGuides();});
+ root.__setFeatures=(checked)=>{state.features=!!checked;drawGuides();};
  snapButton.addEventListener('click',()=>{
    state.realLock=!state.realLock;
    snapButton.setAttribute('aria-pressed',String(state.realLock));
@@ -1190,7 +1255,9 @@ const HurwitzCore = (() => {
    diagnostics.mode=b.dataset.mode;
    modeButtons.forEach(x=>x.setAttribute('aria-pressed',String(x===b)));
    // The coloring is performed in the fragment shader: no recomputation of coefficients.
-   if(!glReady||!taylorProgram)referenceRenderRequest();
+   // On touch-sized screens the final image uses the double-precision
+   // reference overlay, which must be recolored along with the GPU preview.
+   if(!glReady||!taylorProgram||mobileReference())referenceRenderRequest();
    schedule();
  }));
  function refreshSelectorOnly(){updateLabels();updateProbe();drawSPlane();interact();}
@@ -1478,7 +1545,7 @@ const HurwitzSCore = (()=>{
  const smoother=(a,b,x)=>{const t=clamp((x-a)/(b-a),0,1);return t*t*(3-2*t);};
  const HALF_HEIGHT=9,LOG_PERIOD=Math.log(7),MAX_ZOOM=3,MIN_TILE=20,MAX_TILE=72;
  const LIMITS={xmin:-15,xmax:15,ymin:-15,ymax:65};
- const state={a:1,mode:'combined',markings:true,centerX:.5,centerY:14,zoom:0,probe:null};
+ const state={a:1,mode:'combined',markings:true,centerX:.5,centerY:14,zoom:0,probe:null,features:false};
  let gl=null,glReady=false,glPreview=null,glAtlas=null,glUniforms={},glTextures={},atlas=null,frame=0,jobTimer=0,jobToken=0,stopped=false,cpuToken=0,ctx2d=null,lowRes=false,refineTimer=0,viewAnim=0;
 
  // Same four phase anchors and OKLab interpolation as the z-plane exploration.
@@ -1531,36 +1598,36 @@ const HurwitzSCore = (()=>{
   return `<g><rect x="${left.toFixed(2)}" y="${top.toFixed(2)}" width="${width}" height="${height}" rx="4" fill="#112633" fill-opacity=".83"/><text x="${(left+width/2).toFixed(2)}" y="${(y+3.7).toFixed(2)}" text-anchor="middle" font-size="${fontSize}" font-weight="500" font-family="system-ui,sans-serif" fill="${tone}">${str}</text></g>`;
  }
  function drawMarkings(){
-  const {w,h}=size();if(!state.markings||w<1||h<1){guide.replaceChildren();return;}
-  const p=pitchCSS();let xml='';const x0=w/2-state.centerX/p,y0=h/2+state.centerY/p;
-  if(x0>=0&&x0<=w)xml+=`<line x1="${x0}" y1="0" x2="${x0}" y2="${h}" stroke="#f8fcff" stroke-opacity=".25" stroke-width=".9"/>`;
-  if(y0>=0&&y0<=h)xml+=`<line x1="0" y1="${y0}" x2="${w}" y2="${y0}" stroke="#f8fcff" stroke-opacity=".25" stroke-width=".9"/>`;
-  const pt=position(CORE.C(1));
-  const poleVisible=pt.x>=8&&pt.x<=w-8&&pt.y>=9&&pt.y<=h-12;
-  if(poleVisible){
-   xml+=`<circle cx="${pt.x}" cy="${pt.y}" r="3.5" fill="#192e3c" stroke="#fff0c2" stroke-width="1.25"/>`;
-   const pw=55;
-   const rightSide=pt.x+pw+10<=w;
-   xml+=svgLabel('s = 1',rightSide?pt.x+7:pt.x-7,Math.max(14,Math.min(h-13,pt.y+15)),{alignment:rightSide?'left':'right',tone:'#fff4dc'});
+  const {w,h}=size();if((!state.markings&&!state.features)||w<1||h<1){guide.replaceChildren();return;}
+  const p=pitchCSS();let xml='';
+  const x0=w/2-state.centerX/p,y0=h/2+state.centerY/p;
+  const xmin=state.centerX-w*p/2,xmax=state.centerX+w*p/2;
+  const ymin=state.centerY-h*p/2,ymax=state.centerY+h*p/2;
+  if(state.markings){
+    if(x0>=0&&x0<=w)xml+=`<line x1="${x0}" y1="0" x2="${x0}" y2="${h}" stroke="#f8fcff" stroke-opacity=".35" stroke-width=".9"/>`;
+    if(y0>=0&&y0<=h)xml+=`<line x1="0" y1="${y0}" x2="${w}" y2="${y0}" stroke="#f8fcff" stroke-opacity=".35" stroke-width=".9"/>`;
+    // Labels stay on the inside edges rather than crowding the axes near zeros.
+    const sy=integerTickStep(Math.max(p*66,(ymax-ymin)/9));
+    for(let k=Math.ceil(ymin/sy);k<=Math.floor(ymax/sy);k++){
+      const n=k*sy,py=h/2+(state.centerY-n)/p;
+      if(py<15||py>h-32)continue;
+      xml+=svgLabel(n===0?'0':`${n}i`,6,py);
+    }
+    const sx=integerTickStep(Math.max(p*70,(xmax-xmin)/9));
+    for(let k=Math.ceil(xmin/sx);k<=Math.floor(xmax/sx);k++){
+      const n=k*sx,px=w/2+(n-state.centerX)/p;
+      if(px<18||px>w-18)continue;
+      const label=String(n),lw=Math.max(24,Math.ceil(11*.63*label.length+13));
+      xml+=`<g><rect x="${(px-lw/2).toFixed(2)}" y="${h-27}" width="${lw}" height="18" rx="4" fill="#112633" fill-opacity=".83"/><text x="${px.toFixed(2)}" y="${h-14}" font-size="11" font-weight="500" text-anchor="middle" fill="#eaf2f7">${label}</text></g>`;
+    }
   }
-  // Never use fractional tick labels, even when zoomed deeply into the s-plane.
-  const smin=state.centerY-h*p/2,smax=state.centerY+h*p/2;
-  const step=integerTickStep(Math.max(p*64,(smax-smin)/9));
-  if(x0>11&&x0<w-16){
-   const start=Math.ceil(smin/step-1e-9),end=Math.floor(smax/step+1e-9);
-   const rightSide=x0+57<=w;
-   for(let i=start;i<=end&&i<start+12;i++){
-    const yv=Math.round(i*step);
-    const yy=h/2+(state.centerY-yv)/p;
-    if(yy<16||yy>h-16)continue;
-    if(poleVisible&&Math.abs(yy-pt.y)<31&&Math.abs(x0-pt.x)<72)continue;
-    const label=`${yv}i`;
-    const lw=Math.ceil(11*.63*label.length+13);
-    if(!rightSide&&x0-lw-7<0)continue;
-    const x=rightSide?x0+7:x0-7;
-    xml+=`<line x1="${(x0-3).toFixed(2)}" y1="${yy.toFixed(2)}" x2="${(x0+3).toFixed(2)}" y2="${yy.toFixed(2)}" stroke="#eef3f6" stroke-opacity=".5" stroke-width=".9"/>`;
-    xml+=svgLabel(label,x,yy,{alignment:rightSide?'left':'right'});
-   }
+  if(state.features){
+    const pt=position(CORE.C(1));
+    if(pt.x>=9&&pt.x<=w-9&&pt.y>=9&&pt.y<=h-14){
+      xml+=`<circle cx="${pt.x}" cy="${pt.y}" r="3.5" fill="#192e3c" stroke="#fff0c2" stroke-width="1.25"/>`;
+      const rightSide=pt.x+74<=w;
+      xml+=svgLabel('s = 1',rightSide?pt.x+7:pt.x-7,Math.min(h-14,Math.max(14,pt.y+16)),{alignment:rightSide?'left':'right',tone:'#fff4dc'});
+    }
   }
   guide.setAttribute('viewBox',`0 0 ${w} ${h}`);guide.innerHTML=xml;
  }
@@ -1833,6 +1900,7 @@ const HurwitzSCore = (()=>{
  range.addEventListener('input',()=>{state.a=Number(range.value);updateProbe();updateLabels();atlas=null;interact();});
  modeButtons.forEach(b=>b.addEventListener('click',()=>{state.mode=b.dataset.mode;updateLabels();schedule();}));
  markToggle.addEventListener('change',()=>{state.markings=markToggle.checked;drawMarkings();});
+ root.__setFeatures=(checked)=>{state.features=!!checked;drawMarkings();};
  reset.addEventListener('click',()=>{state.centerX=.5;state.centerY=14;state.zoom=0;interact();});
  root.querySelector('.hzs-close').addEventListener('click',()=>{state.probe=null;updateProbe();});
  canvas.addEventListener('wheel',e=>{e.preventDefault();const r=canvas.getBoundingClientRect(),x=e.clientX-r.left,y=e.clientY-r.top,anchor=pointAt(x,y);
@@ -1879,11 +1947,18 @@ const HurwitzSCore = (()=>{
   const zMarks=zRoot.querySelector('.pg-markings-toggle'),sMarks=sRoot.querySelector('.hzs-mark-toggle');
   const zModes=[...zRoot.querySelectorAll('.hz-mode')],sModes=[...sRoot.querySelectorAll('.hzs-mode')];
   const snapButton=zRoot.querySelector('.hz-snap');
-  const menu=document.getElementById('u-menu'),settings=document.getElementById('u-settings-button'),markings=document.getElementById('u-mark'),snap=document.getElementById('u-snap');
+  zRoot.querySelector('.pg-frame').appendChild(zRoot.querySelector('.pg-zoom'));
+  sRoot.querySelector('.hzs-frame').appendChild(sRoot.querySelector('.hzs-reset'));
+  const menu=document.getElementById('u-menu'),settings=document.getElementById('u-settings-button'),markings=document.getElementById('u-mark'),features=document.getElementById('u-features'),snap=document.getElementById('u-snap');
   let active='z';
   function setMarkings(checked){
    markings.checked=checked;
    for(const input of [zMarks,sMarks]){input.checked=checked;input.dispatchEvent(new Event('change',{bubbles:true}));}
+  }
+  function setFeatures(checked){
+    features.checked=!!checked;
+    zRoot.__setFeatures?.(features.checked);
+    sRoot.__setFeatures?.(features.checked);
   }
   function setColor(mode){
    root.classList.remove('u-combined','u-phase','u-modulus');root.classList.add('u-'+mode);
@@ -1917,9 +1992,10 @@ const HurwitzSCore = (()=>{
   document.addEventListener('pointerdown',e=>{if(!menu.hidden&&!menu.contains(e.target)&&!settings.contains(e.target))showSettings(false);});
   document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!menu.hidden){showSettings(false);settings.focus();}});
   markings.addEventListener('change',()=>setMarkings(markings.checked));
+  features.addEventListener('change',()=>setFeatures(features.checked));
   menu.querySelectorAll('input[name=u-color]').forEach(x=>x.addEventListener('change',()=>{if(x.checked)setColor(x.value);}));
   snap.addEventListener('change',()=>setSnap(snap.checked));
   // Defaults deliberately minimalist: no overlays, Combined palette, no snap lock.
-  setMarkings(false);setColor('combined');setSnap(false);changeMode('z');
+  setMarkings(false);setFeatures(false);setColor('combined');setSnap(false);changeMode('z');
 })();
 </script></body></html>
