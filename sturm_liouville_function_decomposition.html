@@ -1,0 +1,415 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0c1722">
+<title>Function Decomposition — Interactive Exploration</title>
+<style>
+:root { color-scheme: dark; --bg:#0c1722; --ink:#e7eef4; --muted:#9bafbe; --faint:#688194; --rule:#263d4e; --surface:#142331; --surface2:#192d3c; --source:#8db6d2; --fit:#efab6c; --resid:#c28bbf; --energy:#55b6a8; --miss:#ac7959; }
+* {box-sizing:border-box}
+html { -webkit-text-size-adjust:100%; }
+body { margin:0; background:var(--bg); color:var(--ink); font-family: system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; font-size:14px; line-height:1.42; }
+button,select {font:inherit}
+button { -webkit-tap-highlight-color:transparent; cursor:pointer; }
+main { width:min(100%,740px); margin:0 auto; padding:17px 19px 38px; }
+header { margin:0 0 16px; }
+h1 {font-size:22px; line-height:1.2; font-weight:650; letter-spacing:-.035em; margin:0 0 5px}
+header p { margin:0; color:var(--muted); font-size:13px; }
+.toolbar { display:flex; align-items:end; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:17px; }
+.group-label { display:block; color:var(--muted); font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.07em; margin-bottom:6px }
+.segment { display:flex; gap:3px; background:var(--surface); border:1px solid var(--rule); padding:3px; border-radius:11px; }
+.segment button {color:var(--muted); border:0; background:transparent; padding:8px 15px; min-height:37px; border-radius:8px; font-size:13px; font-weight:600; }
+.segment button[aria-pressed="true"] { background:#34546a; color:#fff; box-shadow:0 1px 2px #07101955; }
+select { background:var(--surface); color:var(--ink); border:1px solid var(--rule); border-radius:9px; min-height:43px; min-width:166px; padding:8px 12px; }
+.plot-top {display:flex; justify-content:space-between; align-items:baseline; flex-wrap:wrap; gap:6px; margin-bottom:7px}
+.section-title { color:#dce8f0; font-size:13px; font-weight:650; margin:0; }
+.legend {display:flex; align-items:center; flex-wrap:wrap; gap:14px; font-size:11px; color:var(--muted)}
+.legend span {display:flex; align-items:center; gap:6px}
+.line { width:20px; height:0; border-top:2.5px solid; border-radius:2px }
+.line.source {border-color:var(--source)} .line.fit {border-color:var(--fit)}
+.chart-wrap {position:relative; }
+#mainPlot, #residualPlot {display:block; width:100%; height:auto; overflow:visible}
+#mainPlot {touch-action:none; cursor:crosshair; background:rgba(17,32,44,.3); border-radius:7px; user-select:none; -webkit-user-select:none; }
+#mainPlot text, #residualPlot text {user-select:none; -webkit-user-select:none}
+#mainPlot .grid, #residualPlot .grid {stroke:#456276; stroke-width:.8; opacity:.20}
+#mainPlot .axis, #residualPlot .axis {stroke:#7590a1; stroke-width:1; opacity:.43}
+#mainPlot .tick, #residualPlot .tick {fill:#9cb0c0; font:12px system-ui,sans-serif; opacity:.8}
+#mainPlot .source-path {stroke:var(--source);stroke-width:3.1;fill:none;stroke-linejoin:round;stroke-linecap:round}
+#mainPlot .fit-path {stroke:var(--fit);stroke-width:3;fill:none;stroke-linejoin:round;stroke-linecap:round}
+#mainPlot .stroke-preview {stroke:#e4f2fb;stroke-width:3;fill:none;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:7 5}
+#residualPlot .resid-path {stroke:var(--resid);stroke-width:2.25;fill:none;stroke-linejoin:round;stroke-linecap:round}
+.draw-notice {position:absolute; top:12px; left:50%; transform:translateX(-50%); white-space:nowrap; background:#172c3bdf; border:1px solid #56748a; border-radius:22px; padding:6px 12px; color:#ebf2f7; font-size:12px; font-weight:600; pointer-events:none; display:none}
+.draw-notice.visible {display:block}
+.curve-actions {display:flex; align-items:center; justify-content:space-between; gap:9px; margin:8px 0 19px; }
+.hint {color:var(--muted); font-size:11px; line-height:1.4; flex:1; }
+.actions {display:flex; gap:7px; align-items:center; flex:none; }
+.action-btn {color:#dce8ee; background:var(--surface2); border:1px solid #325063; border-radius:8px; padding:8px 11px; min-height:37px; font-size:12px; font-weight:600; }
+.action-btn:active {transform:scale(.98)}
+.action-btn:disabled {opacity:.35; cursor:default}
+.action-btn.primary {color:#101d28; background:#cadbe8; border-color:#cadbe8}
+.residual-head {display:flex; justify-content:space-between; align-items:baseline; margin:0 0 2px; }
+.small-meta {font-size:11px;color:var(--muted)}
+.residual-chart {margin-bottom:17px;}
+.energy-head {display:flex; justify-content:space-between; align-items:baseline; flex-wrap:wrap; gap:8px; margin-bottom:8px}
+#capturedValue {font-variant-numeric:tabular-nums; font-weight:700; color:var(--energy); letter-spacing:.015em}
+.energy-bar {display:flex; height:14px; border-radius:7px; overflow:hidden; background:#375065; outline:1px solid #435b6c22}
+.energy-captured {background:var(--energy); transition:width .17s ease-out;}
+.energy-residual {background:var(--miss); flex:1}
+.energy-key {display:flex; justify-content:space-between; margin-top:6px; color:var(--muted); font-size:11px; font-variant-numeric:tabular-nums;}
+.energy-key strong {font-weight:650; color:#cbdbe4}
+.components {margin-top:22px}
+.coeff-head {display:flex; align-items:baseline; justify-content:space-between; gap:10px; margin-bottom:8px}
+.coeff-sub {font-size:11px;color:var(--muted)}
+.rail {display:flex; gap:7px; overflow-x:auto; overflow-y:hidden; scroll-snap-type:x proximity; padding:1px 1px 11px; touch-action:pan-x; overscroll-behavior-x:contain; scrollbar-color:#415e70 transparent; scrollbar-width:thin;}
+.rail::-webkit-scrollbar {height:5px}
+.rail::-webkit-scrollbar-thumb {background:#415e70;border-radius:6px}
+.coeff {display:flex; flex-direction:column; justify-content:space-between; align-items:center; flex:0 0 59px; padding:7px 3px 6px; border:1px solid #30495a; border-radius:9px; background:#142532; color:var(--muted); min-height:119px; scroll-snap-align:start; transition:background .12s,border-color .12s; }
+.coeff[aria-pressed="true"] {background:#193c42; border-color:#58aa9c;color:var(--ink)}
+.coeff:focus-visible,.action-btn:focus-visible, .segment button:focus-visible {outline:2px solid #a6d6fa;outline-offset:2px}
+.coeff:hover {border-color:#7595a6}
+.coeff .mode-label {font-size:11px;font-weight:700;line-height:1.2;}
+.coeff svg {display:block;width:43px;height:66px;}
+.coeff .coef-val {font-size:10px;font-variant-numeric:tabular-nums;letter-spacing:-.025em}
+.selection-actions {display:flex; gap:8px; margin-top:8px; align-items:center; flex-wrap:wrap;}
+.selection-actions button {color:var(--ink); background:var(--surface); border:1px solid var(--rule); padding:8px 11px; border-radius:8px; min-height:37px; font-size:12px; font-weight:600;}
+.selection-actions button:last-child {background:#274e4a; border-color:#3d796e}
+.status {margin-left:auto;color:var(--muted);font-size:11px;font-variant-numeric:tabular-nums;}
+.math-note {margin-top:20px;border-top:1px solid var(--rule);padding-top:13px;color:var(--muted);font-size:12px}
+.math-note summary {cursor:pointer;color:#c9d8e2;font-weight:600;list-style:disclosure-closed;}
+.math-note p {margin:8px 0 0;max-width:66ch;}
+.math-eq {font-family:Georgia,"Times New Roman",serif;font-size:15px;color:#d7e5ef;letter-spacing:.02em;margin-top:8px;overflow-x:auto;white-space:nowrap}
+footer {color:#678496;font-size:11px;margin-top:18px;}
+@media(min-width:620px){main{padding-top:27px} h1{font-size:27px}.toolbar{margin-bottom:19px}.coeff{flex-basis:64px} .coeff svg{width:46px}.draw-notice{top:18px} }
+@media(max-width:400px){main{padding:15px 12px 30px} h1{font-size:21px}.toolbar{gap:8px}.segment button{padding:8px 11px} select{min-width:145px}.hint{font-size:10.5px}.action-btn{padding:7px 9px}.legend{gap:9px}}
+@media (prefers-reduced-motion:reduce){.energy-captured,.coeff{transition:none}}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>A function is a vector</h1>
+    <p>Reconstruct a curve using orthogonal basis functions.</p>
+  </header>
+  <div class="toolbar">
+    <div>
+      <label class="group-label">Basis</label>
+      <div class="segment" role="group" aria-label="Basis family">
+        <button type="button" data-family="cos" aria-pressed="true">Cosine</button>
+        <button type="button" data-family="leg" aria-pressed="false">Legendre</button>
+      </div>
+    </div>
+    <div>
+      <label class="group-label" for="preset">Starting curve</label>
+      <select id="preset" aria-label="Starting curve">
+        <option value="bump">Smooth bump</option>
+        <option value="corner">Sharp corner</option>
+        <option value="step">Step</option>
+        <option value="custom" disabled>Your drawing</option>
+      </select>
+    </div>
+  </div>
+  <section aria-label="Function plot">
+    <div class="plot-top">
+      <h2 class="section-title">Original and reconstruction</h2>
+      <div class="legend"><span><i class="line source"></i>Original</span><span><i class="line fit"></i>Reconstruction</span></div>
+    </div>
+    <div class="chart-wrap">
+      <svg id="mainPlot" viewBox="0 0 600 330" role="img" aria-label="Function graph. Drag the original curve to reshape; use Draw new to draw a replacement.">
+        <defs><clipPath id="plotClip"><rect x="40" y="18" width="544" height="274" /></clipPath></defs>
+        <g id="mainGrid"></g>
+        <g clip-path="url(#plotClip)">
+          <path id="origPath" class="source-path"></path>
+          <path id="fitPath" class="fit-path"></path>
+          <path id="strokePath" class="stroke-preview"></path>
+          <circle id="touchPoint" r="9" fill="none" stroke="#d9ebf5" stroke-width="1.5" opacity="0"/>
+        </g>
+      </svg>
+      <div id="drawNotice" class="draw-notice">Draw a new curve with your finger</div>
+    </div>
+    <div class="curve-actions">
+      <span id="curveHint" class="hint">Touch the blue curve and drag to reshape it.</span>
+      <div class="actions">
+        <button type="button" id="drawButton" class="action-btn primary">Draw new</button>
+        <button type="button" id="undoButton" class="action-btn" disabled>Undo</button>
+      </div>
+    </div>
+  </section>
+  <section class="residual-chart" aria-label="Residual plot">
+    <div class="residual-head">
+      <h2 class="section-title">Residual <span style="font-weight:450;color:var(--muted)">f(x) − projection</span></h2>
+      <span id="residScale" class="small-meta">Auto-scaled</span>
+    </div>
+    <svg id="residualPlot" viewBox="0 0 600 99" role="img" aria-label="Residual function graph">
+      <defs><clipPath id="residClip"><rect x="40" y="8" width="544" height="76" /></clipPath></defs>
+      <g id="residGrid"></g>
+      <path id="residPath" clip-path="url(#residClip)" class="resid-path"></path>
+    </svg>
+  </section>
+  <section aria-label="Energy breakdown">
+    <div class="energy-head">
+      <h2 class="section-title">Squared L² norm</h2>
+      <div id="capturedValue" aria-live="polite">—</div>
+    </div>
+    <div class="energy-bar" role="progressbar" aria-label="Captured squared L2 norm" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="energyBar">
+      <div id="energyCaptured" class="energy-captured" style="width:0"></div>
+      <div class="energy-residual"></div>
+    </div>
+    <div class="energy-key"><span><strong id="capturedLabel">0%</strong> in selected components</span><span><strong id="residualLabel">100%</strong> residual</span></div>
+  </section>
+  <section class="components" aria-label="Basis component selection">
+    <div class="coeff-head">
+      <h2 class="section-title">Basis components</h2>
+      <span class="coeff-sub">Tap to toggle · swipe sideways</span>
+    </div>
+    <div id="rail" class="rail" role="group" aria-label="Select basis components"></div>
+    <div class="selection-actions">
+      <button type="button" id="noneButton">None</button>
+      <button type="button" id="allButton">All nine</button>
+      <button type="button" id="nextButton">Add next <span aria-hidden="true">＋</span></button>
+      <span id="selectionStatus" class="status">—</span>
+    </div>
+  </section>
+  <details class="math-note">
+    <summary>Why does the energy bar work?</summary>
+    <p>These are orthonormal bases for the same Hilbert space, L²[0,1]. Every selected component is an orthogonal projection, and the residual is orthogonal to the reconstruction. Thus the squared norm splits exactly:</p>
+    <div class="math-eq">∫₀¹ |f|² dx = ∑<sub>selected n</sub> |cₙ|² + ∫₀¹ |f − f<sub>S</sub>|² dx</div>
+    <p>The bar represents integrated squared error, <em>not</em> the largest pointwise deviation. Switching from cosine to shifted Legendre changes the nine-dimensional approximation space, but not the inner product.</p>
+  </details>
+  <footer>Sturm–Liouville chapter · exploratory prototype v1 · computed locally, no external libraries</footer>
+</main>
+<script>
+(()=>{'use strict';
+  const N=9, EDIT_N=257, ROOT2=Math.sqrt(2), plot={left:40,right:584,top:18,bottom:292, yLimit:1.75};
+  const svg=document.getElementById('mainPlot');
+  const origPath=document.getElementById('origPath'), fitPath=document.getElementById('fitPath'), strokePath=document.getElementById('strokePath');
+  const residualPath=document.getElementById('residPath'), rail=document.getElementById('rail');
+  const touched=document.getElementById('touchPoint');
+  const presetSelect=document.getElementById('preset');
+  const drawButton=document.getElementById('drawButton'), undoButton=document.getElementById('undoButton');
+  const drawNotice=document.getElementById('drawNotice'), curveHint=document.getElementById('curveHint');
+  const capturedValue=document.getElementById('capturedValue');
+  const energyCaptured=document.getElementById('energyCaptured');
+  const energyBar=document.getElementById('energyBar');
+  const capturedLabel=document.getElementById('capturedLabel'), residualLabel=document.getElementById('residualLabel');
+  const selectionStatus=document.getElementById('selectionStatus');
+  const residScale=document.getElementById('residScale');
+  const selected=new Set([0,1,2,3]);
+  let family='cos', preset='bump', baseSamples=null, edits=new Float64Array(EDIT_N);
+  let coeffs={cos:new Float64Array(N),leg:new Float64Array(N)}, totalEnergy=0;
+  let drawArmed=false, gesture=null, framePending=false;
+  const history=[];
+  const X=(x)=>plot.left+x*(plot.right-plot.left);
+  const Y=(y)=> (plot.top+plot.bottom)/2-(y/(2*plot.yLimit))*(plot.bottom-plot.top);
+  const clamp=(a,lo,hi)=>Math.max(lo,Math.min(hi,a));
+  function legendre(n,z){
+    if(n===0)return 1;if(n===1)return z;
+    let p0=1,p1=z,p;
+    for(let k=2;k<=n;k++){p=((2*k-1)*z*p1-(k-1)*p0)/k;p0=p1;p1=p;}
+    return p1;
+  }
+  function basis(which,n,x){
+    if(which==='cos')return n===0?1:ROOT2*Math.cos(n*Math.PI*x);
+    return Math.sqrt(2*n+1)*legendre(n,2*x-1);
+  }
+  // Sixteen-point Gauss-Legendre quadrature on 96 panels; x=1/2 is a panel boundary.
+  // This integrates the exact discontinuous step preset without smearing across its jump.
+  function gaussNodes(n){
+    const a=[];
+    for(let i=0;i<Math.floor((n+1)/2);i++){
+      let z=Math.cos(Math.PI*(i+.75)/(n+.5)), p=0,pp=0;
+      for(let j=0;j<18;j++){
+        let p1=1,p2=0;
+        for(let k=1;k<=n;k++){const p3=p2;p2=p1;p1=((2*k-1)*z*p2-(k-1)*p3)/k;}
+        p=p1;pp=n*(z*p1-p2)/(z*z-1);
+        const next=z-p/pp;
+        if(Math.abs(next-z)<1e-15){z=next;break;}
+        z=next;
+      }
+      const w=2/((1-z*z)*pp*pp);
+      a.push({x:-z,w},{x:z,w});
+    }
+    return a.sort((u,v)=>u.x-v.x);
+  }
+  const gauss=gaussNodes(16);
+  const quad=[];
+  for(let k=0;k<96;k++){
+    const a=k/96,b=(k+1)/96, half=(b-a)/2, center=(a+b)/2;
+    for(const g of gauss){
+      const x=center+half*g.x;
+      quad.push({x,w:half*g.w,cos:Array.from({length:N},(_,i)=>basis('cos',i,x)),leg:Array.from({length:N},(_,i)=>basis('leg',i,x))});
+    }
+  }
+  function bump(x){return .12+1.14*Math.exp(-.5*Math.pow((x-.35)/.115,2))-.61*Math.exp(-.5*Math.pow((x-.76)/.105,2));}
+  function corner(x){return 1.12-2.8*Math.abs(x-.44);}
+  function presetAt(x){
+    if(preset==='corner')return corner(x);
+    if(preset==='step')return x<.5?-.60:.91;
+    return bump(x);
+  }
+  function sampleArray(arr,x){
+    if(x<=0)return arr[0];if(x>=1)return arr[arr.length-1];
+    const z=x*(arr.length-1),i=Math.floor(z),t=z-i;
+    // Cubic interpolation (dense nodes give smooth local curve editing).
+    const p0=arr[Math.max(0,i-1)],p1=arr[i],p2=arr[Math.min(arr.length-1,i+1)],p3=arr[Math.min(arr.length-1,i+2)];
+    return p1+.5*t*(p2-p0+t*(2*p0-5*p1+4*p2-p3+t*(3*(p1-p2)+p3-p0)));
+  }
+  function curve(x){return (baseSamples?sampleArray(baseSamples,x):presetAt(x))+sampleArray(edits,x);}
+  function snapshot(){return {preset,base:baseSamples?new Float64Array(baseSamples):null,edits:new Float64Array(edits)};}
+  function pushHistory(s){history.push(s);if(history.length>24)history.shift();undoButton.disabled=false;}
+  function restore(s){preset=s.preset;baseSamples=s.base?new Float64Array(s.base):null;edits=new Float64Array(s.edits);presetSelect.value=preset;drawArmed=false;updateDrawUI();recompute();}
+  function updateDrawUI(){drawButton.textContent=drawArmed?'Cancel':'Draw new';drawNotice.classList.toggle('visible',drawArmed);curveHint.textContent=drawArmed?'Draw across the graph; lift to finish.':'Touch the blue curve and drag to reshape it.';}
+  function compute(){
+    const sumsC=new Float64Array(N),sumsL=new Float64Array(N);let e=0;
+    for(const q of quad){const f=curve(q.x),v=q.w*f;e+=v*f;for(let i=0;i<N;i++){sumsC[i]+=v*q.cos[i];sumsL[i]+=v*q.leg[i];}}
+    coeffs={cos:sumsC,leg:sumsL};totalEnergy=e;
+  }
+  function projection(x){let v=0;for(const n of selected)v+=coeffs[family][n]*basis(family,n,x);return v;}
+  function dPath(fn,count=520){let out='';for(let i=0;i<=count;i++){const x=i/count;out+=(i?'L':'M')+X(x).toFixed(2)+','+Y(fn(x)).toFixed(2)+' ';}return out;}
+  function newSVG(tag,attrs,parent){const el=document.createElementNS('http://www.w3.org/2000/svg',tag);for(const [key,val] of Object.entries(attrs))el.setAttribute(key,val);parent.appendChild(el);return el;}
+  function drawGrid(){
+    const g=document.getElementById('mainGrid');
+    for(let i=0;i<=4;i++){
+      const x=X(i/4);newSVG('line',{x1:x,y1:plot.top,x2:x,y2:plot.bottom,class:i===0||i===4?'axis':'grid'},g);
+    }
+    for(const y of [-1,0,1]){
+      newSVG('line',{x1:plot.left,y1:Y(y),x2:plot.right,y2:Y(y),class:y===0?'axis':'grid'},g);
+      const t=newSVG('text',{x:32,y:Y(y)+4,class:'tick','text-anchor':'end'},g);t.textContent=String(y);
+    }
+    for(const [x,label] of [[0,'0'],[.5,'0.5'],[1,'1']]){
+      const t=newSVG('text',{x:X(x),y:316,class:'tick','text-anchor':x===0?'start':x===1?'end':'middle'},g);t.textContent=label;
+    }
+    const rg=document.getElementById('residGrid');
+    for(let i=0;i<=4;i++){newSVG('line',{x1:X(i/4),y1:8,x2:X(i/4),y2:84,class:'grid'},rg);}
+    newSVG('line',{x1:plot.left,y1:46,x2:plot.right,y2:46,class:'axis'},rg);
+    const z=newSVG('text',{x:32,y:50,class:'tick','text-anchor':'end'},rg);z.textContent='0';
+  }
+  function renderGraph(){
+    origPath.setAttribute('d',dPath(curve));
+    fitPath.setAttribute('d',dPath(projection));
+    let peak=0;
+    const test=[];
+    for(let i=0;i<=540;i++){const x=i/540,err=curve(x)-projection(x);test.push(err);peak=Math.max(peak,Math.abs(err));}
+    const bound=Math.max(.012,1.12*peak);
+    const ry=e=>46-e/bound*36;
+    let d='';test.forEach((err,i)=>{d+=(i?'L':'M')+X(i/540).toFixed(2)+','+ry(err).toFixed(2)+' ';});
+    residualPath.setAttribute('d',d);
+    residScale.textContent='±'+(bound<.1?bound.toFixed(3):bound.toFixed(2))+' · auto scale';
+  }
+  function formatCoefficient(c){return Math.abs(c)<.005?(c<0?'−':'')+Math.abs(c).toFixed(3): (c<0?'−':'')+Math.abs(c).toFixed(2);}
+  function renderRail(){
+    const c=coeffs[family],max=Math.max(.06,...Array.from(c,Math.abs));
+    for(let n=0;n<N;n++){
+      let btn=document.getElementById('mode'+n);
+      if(!btn){btn=document.createElement('button');btn.type='button';btn.id='mode'+n;btn.className='coeff';btn.innerHTML=`<span class="mode-label">φ<sub>${n}</sub></span><svg viewBox="0 0 43 66" aria-hidden="true"><line x1="4" y1="33" x2="39" y2="33" stroke="#8497a7" stroke-opacity=".48" stroke-width="1"/><rect x="12" y="33" width="19" height="0" rx="2"/></svg><span class="coef-val"></span>`;btn.addEventListener('click',()=>{if(selected.has(n))selected.delete(n);else selected.add(n);render();});rail.append(btn);}
+      const h=30*Math.abs(c[n])/max,rect=btn.querySelector('rect');rect.setAttribute('y',c[n]>=0?33-h:33);rect.setAttribute('height',Math.max(h,.9));rect.setAttribute('fill',selected.has(n)?'#55b6a8':'#718796');rect.setAttribute('opacity',selected.has(n)?'1':'.55');
+      btn.setAttribute('aria-pressed',String(selected.has(n)));btn.setAttribute('aria-label',`Mode ${n}, coefficient ${c[n].toFixed(3)}, ${selected.has(n)?'included':'excluded'}`);
+      btn.querySelector('.coef-val').textContent=formatCoefficient(c[n]);
+    }
+  }
+  function renderEnergy(){
+    const captured=Array.from(selected).reduce((sum,n)=>sum+coeffs[family][n]**2,0);
+    const pct=totalEnergy>1e-13?clamp(100*captured/totalEnergy,0,100):0;
+    const display=n=>n.toFixed(1)+'%';
+    capturedValue.textContent=totalEnergy>1e-13?display(pct)+' captured':'Zero function';
+    energyCaptured.style.width=pct+'%';
+    capturedLabel.textContent=display(pct);residualLabel.textContent=display(100-pct);
+    energyBar.setAttribute('aria-valuenow',pct.toFixed(1));
+    selectionStatus.textContent=selected.size+' of '+N+' selected';
+    document.getElementById('nextButton').disabled=selected.size===N;
+  }
+  function render(){renderGraph();renderEnergy();renderRail();}
+  function recompute(){compute();render();}
+  function scheduleRecompute(){if(framePending)return;framePending=true;requestAnimationFrame(()=>{framePending=false;recompute();});}
+  function setFamily(which){family=which;document.querySelectorAll('[data-family]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.family===family)));render();}
+  function setPreset(which){pushHistory(snapshot());preset=which;baseSamples=null;edits=new Float64Array(EDIT_N);presetSelect.value=which;drawArmed=false;updateDrawUI();recompute();}
+  function screenXY(evt){const r=svg.getBoundingClientRect();return {sx:(evt.clientX-r.left)/r.width*600,sy:(evt.clientY-r.top)/r.height*330};}
+  function dataXY(evt){const p=screenXY(evt);return {x:clamp((p.sx-plot.left)/(plot.right-plot.left),0,1), y:clamp(((plot.top+plot.bottom)/2-p.sy)*2*plot.yLimit/(plot.bottom-plot.top),-plot.yLimit,plot.yLimit),...p};}
+  function showPointer(p){touched.setAttribute('cx',X(p.x));touched.setAttribute('cy',Y(curve(p.x)));touched.setAttribute('opacity','1');}
+  function hidePointer(){touched.setAttribute('opacity','0');}
+  function resampleStroke(pts){
+    // Samples ordered by x, with the most recent point retained for repeat x positions.
+    const sorted=pts.slice().sort((a,b)=>a.x-b.x);const grouped=[];
+    for(const p of sorted){if(grouped.length && p.x-grouped[grouped.length-1].x<.001){grouped[grouped.length-1]={x:p.x,y:p.y};}else grouped.push(p);}
+    const nodes=new Float64Array(EDIT_N);let j=0;
+    for(let i=0;i<EDIT_N;i++){
+      const x=i/(EDIT_N-1);
+      while(j+1<grouped.length-1 && grouped[j+1].x<x)j++;
+      const l=grouped[j],r=grouped[Math.min(j+1,grouped.length-1)];
+      nodes[i]=x<=grouped[0].x?grouped[0].y:x>=grouped[grouped.length-1].x?grouped[grouped.length-1].y:l.y+(r.y-l.y)*clamp((x-l.x)/Math.max(.000001,r.x-l.x),0,1);
+    }
+    // Light Gaussian smoothing removes finger jitter without erasing deliberately drawn features.
+    const kernel=[.06,.24,.40,.24,.06];
+    for(let pass=0;pass<3;pass++){
+      const copy=new Float64Array(nodes);
+      for(let i=0;i<EDIT_N;i++){let z=0;for(let j=-2;j<=2;j++)z+=kernel[j+2]*copy[clamp(i+j,0,EDIT_N-1)];nodes[i]=z;}
+    }
+    return nodes;
+  }
+  function startGesture(evt){
+    if(evt.button!==undefined && evt.button!==0)return;
+    const p=dataXY(evt);if(p.sx<plot.left-8||p.sx>plot.right+8||p.sy<plot.top-8||p.sy>plot.bottom+8)return;
+    if(drawArmed){gesture={type:'draw',pts:[p],before:snapshot()};strokePath.setAttribute('d',`M${X(p.x)},${Y(p.y)}`);}
+    else {
+      const localScale=svg.getBoundingClientRect().height/330;
+      if(Math.abs(p.sy-Y(curve(p.x)))*localScale>33){curveHint.textContent='Start on the blue curve to reshape it.';return;}
+      gesture={type:'sculpt',prev:p,before:snapshot(),changed:false};showPointer(p);
+    }
+    svg.setPointerCapture(evt.pointerId);
+    evt.preventDefault();
+  }
+  function moveGesture(evt){
+    if(!gesture)return;const p=dataXY(evt);
+    if(gesture.type==='draw'){
+      const pts=gesture.pts,old=pts[pts.length-1];
+      if(Math.abs(old.x-p.x)+Math.abs(old.y-p.y)<.003)return;
+      pts.push(p);strokePath.setAttribute('d',pts.map((q,i)=>(i?'L':'M')+X(q.x).toFixed(2)+','+Y(q.y).toFixed(2)).join(' '));
+    }else {
+      const dy=p.y-gesture.prev.y;
+      if(Math.abs(dy)>.0003){
+        const sigma=.066;
+        for(let i=0;i<EDIT_N;i++){
+          const x=i/(EDIT_N-1),k=Math.exp(-.5*((x-p.x)/sigma)**2);
+          edits[i]+=dy*k;
+        }
+        gesture.changed=true;
+        showPointer(p);scheduleRecompute();
+      }
+      gesture.prev=p;
+    }
+    evt.preventDefault();
+  }
+  function endGesture(evt){
+    if(!gesture)return;
+    const g=gesture;gesture=null;
+    try{if(svg.hasPointerCapture(evt.pointerId))svg.releasePointerCapture(evt.pointerId);}catch(_){}
+    if(g.type==='draw'){
+      strokePath.setAttribute('d','');
+      if(g.pts.length>=3 && Math.abs(g.pts[g.pts.length-1].x-g.pts[0].x)>.025){
+        pushHistory(g.before);baseSamples=resampleStroke(g.pts);edits=new Float64Array(EDIT_N);preset='custom';presetSelect.value='custom';drawArmed=false;updateDrawUI();recompute();
+      }
+    }else{
+      hidePointer();if(g.changed){pushHistory(g.before);recompute();}
+      curveHint.textContent='Touch the blue curve and drag to reshape it.';
+    }
+  }
+  document.querySelectorAll('[data-family]').forEach(b=>b.addEventListener('click',()=>setFamily(b.dataset.family)));
+  presetSelect.addEventListener('change',()=>setPreset(presetSelect.value));
+  drawButton.addEventListener('click',()=>{drawArmed=!drawArmed;strokePath.setAttribute('d','');updateDrawUI();});
+  undoButton.addEventListener('click',()=>{if(history.length)restore(history.pop());undoButton.disabled=history.length===0;});
+  document.getElementById('noneButton').addEventListener('click',()=>{selected.clear();render();});
+  document.getElementById('allButton').addEventListener('click',()=>{for(let i=0;i<N;i++)selected.add(i);render();});
+  document.getElementById('nextButton').addEventListener('click',()=>{
+    const n=Array.from({length:N},(_,i)=>i).find(i=>!selected.has(i));
+    if(n!==undefined){selected.add(n);render();const el=document.getElementById('mode'+n);if(el && el.offsetLeft+el.offsetWidth>rail.scrollLeft+rail.clientWidth){rail.scrollTo({left:Math.max(0,el.offsetLeft-rail.offsetLeft-rail.clientWidth+el.offsetWidth+12),behavior:'smooth'});}}
+  });
+  svg.addEventListener('pointerdown',startGesture);
+  svg.addEventListener('pointermove',moveGesture);
+  svg.addEventListener('pointerup',endGesture);
+  svg.addEventListener('pointercancel',endGesture);
+  svg.addEventListener('lostpointercapture',()=>{if(gesture){gesture=null;strokePath.setAttribute('d','');hidePointer();recompute();}});
+  drawGrid();updateDrawUI();recompute();
+})();
+</script>
+</body>
+</html>
