@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0c1722">
-<title>A Function Is a Vector — Interactive Exploration v2</title>
+<title>A Function Is a Vector — Interactive Exploration v5</title>
 <style>
 :root { color-scheme: dark; --bg:#0c1722; --ink:#e7eef4; --muted:#9bafbe; --faint:#688194; --rule:#263d4e; --surface:#142331; --surface2:#192d3c; --source:#8db6d2; --fit:#55b6a8; --energy:#55b6a8; --miss:#c99366; }
 * {box-sizing:border-box}
@@ -21,7 +21,20 @@ header p { margin:0; color:var(--muted); font-size:13px; }
 .segment { display:flex; gap:3px; background:var(--surface); border:1px solid var(--rule); padding:3px; border-radius:11px; }
 .segment button {color:var(--muted); border:0; background:transparent; padding:8px 15px; min-height:37px; border-radius:8px; font-size:13px; font-weight:600; }
 .segment button[aria-pressed="true"] { background:#34546a; color:#fff; box-shadow:0 1px 2px #07101955; }
-select { background:var(--surface); color:var(--ink); border:1px solid var(--rule); border-radius:9px; min-height:43px; min-width:166px; padding:8px 12px; }
+.basis-controls {display:flex; align-items:center; flex-wrap:wrap; gap:8px;}
+.gallery-open {display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:43px;border:1px solid var(--rule);border-radius:9px;background:var(--surface);color:#c7dfeb;padding:8px 10px;font-size:12px;font-weight:600;white-space:nowrap;}
+.gallery-open:hover {background:var(--surface2);border-color:#7193a8}
+.gallery-open:focus-visible,.gallery-close:focus-visible {outline:2px solid #b5def9;outline-offset:2px}
+.gallery-open svg {width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.curve-menu {position:relative; min-width:166px}
+.curve-menu-trigger {width:100%; display:flex; justify-content:space-between; align-items:center; gap:14px; background:var(--surface); color:var(--ink); border:1px solid var(--rule); border-radius:9px; min-height:43px; padding:8px 12px; font-size:13px; font-weight:600; text-align:left;}
+.curve-menu-trigger svg {width:13px; height:13px; flex:none; opacity:.72; transition:transform .12s ease-out}
+.curve-menu-trigger[aria-expanded="true"] svg {transform:rotate(180deg)}
+.curve-menu-items {position:absolute; z-index:10; right:0; top:calc(100% + 5px); min-width:190px; padding:5px; background:#1a2d3c; border:1px solid #405a6d; border-radius:10px; box-shadow:0 9px 25px #0008}
+.curve-menu-items[hidden] {display:none}
+.curve-menu-items button {display:block; width:100%; text-align:left; color:var(--ink); background:transparent; border:0; border-radius:7px; padding:11px 12px; min-height:41px; font-size:13px;}
+.curve-menu-items button:hover,.curve-menu-items button:focus-visible {background:#2a4657; outline:none}
+.curve-menu-trigger:focus-visible {outline:2px solid #a6d6fa;outline-offset:2px}
 .plot-top {display:flex; justify-content:space-between; align-items:baseline; flex-wrap:wrap; gap:6px; margin-bottom:7px}
 .section-title { color:#dce8f0; font-size:13px; font-weight:650; margin:0; }
 .legend {display:flex; align-items:center; flex-wrap:wrap; gap:14px; font-size:11px; color:var(--muted)}
@@ -43,8 +56,7 @@ select { background:var(--surface); color:var(--ink); border:1px solid var(--rul
 .draw-notice.visible {display:block}
 .curve-actions {display:flex; align-items:center; justify-content:flex-start; gap:9px; margin:9px 0 19px; }
 .hint {color:var(--muted); font-size:11px; line-height:1.4; flex:1; }
-.energy-head {display:flex; justify-content:space-between; align-items:end; flex-wrap:wrap; gap:8px; margin-bottom:11px}
-.space-label {font-size:11px; color:var(--muted); margin-top:2px; letter-spacing:.01em}
+.energy-head {display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:8px}
 .energy-section {transition:opacity .14s ease-out}
 .energy-section.inactive {opacity:.32; pointer-events:none}
 .components.inactive {opacity:.35; pointer-events:none}
@@ -67,7 +79,7 @@ select { background:var(--surface); color:var(--ink); border:1px solid var(--rul
 .coeff {display:flex; flex-direction:column; justify-content:space-between; align-items:center; flex:0 0 59px; padding:7px 3px 6px; border:1px solid #30495a; border-radius:9px; background:#142532; color:var(--muted); min-height:119px; scroll-snap-align:start; transition:background .12s,border-color .12s; }
 .coeff[aria-pressed="true"] {background:#193c42; border-color:#58aa9c;color:var(--ink)}
 .coeff:disabled,.selection-actions button:disabled {cursor:default}
-.coeff:focus-visible,.segment button:focus-visible, select:focus-visible {outline:2px solid #a6d6fa;outline-offset:2px}
+.coeff:focus-visible,.segment button:focus-visible {outline:2px solid #a6d6fa;outline-offset:2px}
 .coeff:hover {border-color:#7595a6}
 .coeff .mode-label {font-size:11px;font-weight:700;line-height:1.2;}
 .coeff svg {display:block;width:43px;height:66px;}
@@ -76,13 +88,55 @@ select { background:var(--surface); color:var(--ink); border:1px solid var(--rul
 .selection-actions button {color:var(--ink); background:var(--surface); border:1px solid var(--rule); padding:8px 11px; border-radius:8px; min-height:37px; font-size:12px; font-weight:600;}
 .selection-actions button:last-child {background:#274e4a; border-color:#3d796e}
 .status {margin-left:auto;color:var(--muted);font-size:11px;font-variant-numeric:tabular-nums;}
+/* Passive, nearly full-screen gallery: opening/closing does not touch model state. */
+.gallery-shade[hidden] {display:none}
+.gallery-shade {position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;padding:18px 12px;background:rgba(3,11,18,.83);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);}
+.gallery-dialog {width:min(100%,580px);max-height:min(90dvh,880px);overflow:auto;overscroll-behavior:contain;border:1px solid #426074;border-radius:16px;background:#142532;box-shadow:0 25px 85px #000a;padding:18px;}
+.gallery-header {display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin-bottom:14px}
+.gallery-title {margin:0;color:#eef4f8;font-size:20px;letter-spacing:-.02em}
+.gallery-sub {margin:3px 0 0;font-size:12px;color:var(--muted)}
+.gallery-close {display:grid;place-items:center;width:36px;height:36px;flex:none;background:#203646;color:#edf5f9;border:1px solid #405d70;border-radius:50%;font-size:23px;line-height:1;cursor:pointer}
+.gallery-formula {margin:0 0 15px;font-size:13px;color:#bed5e2;font-family:Georgia,'Times New Roman',serif;line-height:1.45;}
+.gallery-grid {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}
+.gallery-tile {background:#10212f;border:1px solid #304859;border-radius:10px;padding:8px 7px 6px;min-width:0}
+.gallery-tile.is-selected {background:#16373b;border-color:#55b6a8;box-shadow:inset 0 0 0 1px #55b6a822}
+.gallery-tile .tile-title {font-size:12px;font-weight:650;color:#b6cbda;line-height:1.25;margin-bottom:3px}
+.gallery-tile .tile-title sub, .coeff .mode-label sub {font-size:.72em;line-height:0;vertical-align:sub}
+.gallery-tile.is-selected .tile-title {color:#8fe0d1}
+.gallery-tile svg {display:block;width:100%;height:auto;overflow:hidden}
+.gallery-note {font-size:11px;color:var(--muted);margin:13px 1px 0;line-height:1.5}
+.gallery-key {display:flex;align-items:center;gap:7px;color:#a5bdca;font-size:11px;margin-top:13px}
+.gallery-key::before {content:'';width:10px;height:10px;border:1px solid #55b6a8;border-radius:3px;background:#16373b}
 .math-note {margin-top:20px;border-top:1px solid var(--rule);padding-top:13px;color:var(--muted);font-size:12px}
 .math-note summary {cursor:pointer;color:#c9d8e2;font-weight:600;list-style:disclosure-closed;}
 .math-note p {margin:8px 0 0;max-width:66ch;}
 .math-eq {font-family:Georgia,"Times New Roman",serif;font-size:15px;color:#d7e5ef;letter-spacing:.02em;margin-top:8px;overflow-x:auto;white-space:nowrap}
 footer {color:#678496;font-size:11px;margin-top:18px;}
 @media(min-width:620px){main{padding-top:27px} h1{font-size:27px}.toolbar{margin-bottom:19px}.coeff{flex-basis:64px} .coeff svg{width:46px}.draw-notice{top:18px} }
-@media(max-width:400px){main{padding:15px 12px 30px} h1{font-size:21px}.toolbar{gap:8px}.segment button{padding:8px 11px} select{min-width:145px}.hint{font-size:10.5px}.legend{gap:9px}}
+@media(max-width:400px){main{padding:15px 12px 30px} h1{font-size:21px}.toolbar{gap:8px}.segment button{padding:8px 10px} .curve-menu{min-width:145px}.hint{font-size:10.5px}.legend{gap:9px}.gallery-open{padding:8px 9px}}
+@media(max-width:370px){.gallery-open span{display:none}.gallery-open{min-width:42px}}
+@media(max-width:390px){.gallery-shade{padding:8px}.gallery-dialog{padding:13px;max-height:95dvh}.gallery-grid{gap:6px}.gallery-tile{padding:6px 5px 4px}.gallery-title{font-size:18px}}
+/* Keep the entire interaction accessible in a single short phone viewport.
+   The explainer remains below the fold; the main graph retains its drawing area. */
+@media(max-width:619px){
+  main{padding-top:11px}
+  header{margin-bottom:10px}
+  h1{font-size:20px;margin-bottom:0}
+  header p{display:none}
+  .toolbar{margin-bottom:11px;gap:8px}
+  .group-label{margin-bottom:4px}
+  .toolbar > div:last-child > .group-label{display:none}
+  .segment button{min-height:35px;padding-top:7px;padding-bottom:7px}
+  .gallery-open,.curve-menu-trigger{min-height:39px}
+  .plot-top{margin-bottom:5px}
+  .curve-actions{margin:5px 0 12px}
+  .components{margin-top:15px}
+  .coeff-head{margin-bottom:6px}
+  .rail{padding-bottom:7px}
+  .selection-actions{margin-top:5px}
+  .math-note{margin-top:17px}
+}
+@media(max-width:400px){main{padding-top:11px} h1{font-size:20px}}
 @media (prefers-reduced-motion:reduce){.energy-captured,.coeff,.energy-section,.components{transition:none}}
 </style>
 </head>
@@ -95,20 +149,31 @@ footer {color:#678496;font-size:11px;margin-top:18px;}
   <div class="toolbar">
     <div>
       <label class="group-label">Basis</label>
-      <div class="segment" role="group" aria-label="Basis family">
-        <button type="button" data-family="cos" aria-pressed="true">Cosine</button>
-        <button type="button" data-family="leg" aria-pressed="false">Legendre</button>
+      <div class="basis-controls">
+        <div class="segment" role="group" aria-label="Basis family">
+          <button type="button" data-family="cos" aria-pressed="true">Cosine</button>
+          <button type="button" data-family="leg" aria-pressed="false">Legendre</button>
+          <button type="button" data-family="wal" aria-pressed="false">Walsh</button>
+        </div>
+        <button type="button" class="gallery-open" id="galleryOpen" aria-haspopup="dialog" aria-controls="galleryShade" aria-label="View current basis functions">
+          <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="2" y="2" width="6" height="6" rx="1"/><rect x="12" y="2" width="6" height="6" rx="1"/><rect x="2" y="12" width="6" height="6" rx="1"/><rect x="12" y="12" width="6" height="6" rx="1"/></svg><span>View basis</span>
+        </button>
       </div>
     </div>
     <div>
-      <label class="group-label" for="preset">Starting curve</label>
-      <select id="preset" aria-label="Choose or draw a starting curve">
-        <option value="" selected>Choose a curve…</option>
-        <option value="bump">Smooth bump</option>
-        <option value="corner">Sharp corner</option>
-        <option value="step">Step function</option>
-        <option value="draw">Draw a curve…</option>
-      </select>
+      <span class="group-label">Starting curve</span>
+      <div class="curve-menu" id="curveMenu">
+        <button id="presetTrigger" class="curve-menu-trigger" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="presetMenu" aria-label="Starting curve: Smooth bump">
+          <span id="presetLabel">Smooth bump</span>
+          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="m3 6 5 5 5-5" stroke="currentColor" stroke-width="1.7" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <div id="presetMenu" class="curve-menu-items" role="menu" aria-label="Starting curve" hidden>
+          <button type="button" role="menuitem" data-preset="bump">Smooth bump</button>
+          <button type="button" role="menuitem" data-preset="corner">Sharp corner</button>
+          <button type="button" role="menuitem" data-preset="step">Step function</button>
+          <button type="button" role="menuitem" data-preset="draw">Draw your own</button>
+        </div>
+      </div>
     </div>
   </div>
   <section aria-label="Function plot">
@@ -117,7 +182,7 @@ footer {color:#678496;font-size:11px;margin-top:18px;}
       <div class="legend"><span><i class="line source"></i>Original</span><span><i class="line fit"></i>Reconstruction</span></div>
     </div>
     <div class="chart-wrap">
-      <svg id="mainPlot" viewBox="0 0 600 390" role="img" aria-label="Function graph. Drag the blue curve to reshape it, or select Draw a curve from the menu to replace it.">
+      <svg id="mainPlot" viewBox="0 0 600 390" role="img" aria-label="Function graph. Drag the blue curve to reshape it, or select Draw your own from the menu to replace it.">
         <defs><clipPath id="plotClip"><rect x="40" y="20" width="544" height="328" /></clipPath></defs>
         <g id="mainGrid"></g>
         <g clip-path="url(#plotClip)">
@@ -136,10 +201,7 @@ footer {color:#678496;font-size:11px;margin-top:18px;}
   </section>
   <section id="energySection" class="energy-section" aria-label="Energy breakdown">
     <div class="energy-head">
-      <div>
-        <h2 class="section-title">Squared L² norm</h2>
-        <div class="space-label">Hilbert space · L²([0,1], dx)</div>
-      </div>
+      <h2 class="section-title">Squared L² norm</h2>
       <div id="capturedValue" aria-live="polite">—</div>
     </div>
     <div class="energy-bar" role="progressbar" aria-label="Energy in selected components" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="energyBar">
@@ -164,13 +226,29 @@ footer {color:#678496;font-size:11px;margin-top:18px;}
       <span id="selectionStatus" class="status">—</span>
     </div>
   </section>
+  <div id="galleryShade" class="gallery-shade" hidden>
+    <section id="galleryDialog" class="gallery-dialog" role="dialog" aria-modal="true" aria-labelledby="galleryTitle" aria-describedby="galleryDescription" tabindex="-1">
+      <div class="gallery-header">
+        <div>
+          <h2 id="galleryTitle" class="gallery-title">Cosine basis</h2>
+          <p id="galleryDescription" class="gallery-sub">Nine orthonormal functions in L²([0,1], dx)</p>
+        </div>
+        <button type="button" class="gallery-close" id="galleryClose" aria-label="Close basis gallery">×</button>
+      </div>
+      <p class="gallery-formula" id="galleryFormula"></p>
+      <div id="galleryGrid" class="gallery-grid" aria-label="Nine basis functions"></div>
+      <div class="gallery-key">Teal border: selected for reconstruction</div>
+      <p class="gallery-note" id="galleryNote">Functions have unit L² norm. Vertical scales are adjusted for legibility.</p>
+      
+    </section>
+  </div>
   <details class="math-note">
     <summary>Why does the energy bar work?</summary>
-    <p>These are orthonormal bases for the same Hilbert space, L²[0,1]. Every selected component is an orthogonal projection, and the residual is orthogonal to the reconstruction. Thus the squared norm splits exactly:</p>
+    <p>Cosine, shifted Legendre, and sequency-ordered Walsh functions are orthonormal bases for the same Hilbert space, L²[0,1]. Every selected component is an orthogonal projection, and the residual is orthogonal to the reconstruction. Thus the squared norm splits exactly:</p>
     <div class="math-eq">∫₀¹ |f|² dx = ∑<sub>selected n</sub> |cₙ|² + ∫₀¹ |f − f<sub>S</sub>|² dx</div>
-    <p>The amber shading shows <em>where</em> the curves differ. Unlike the shaded area, the amber portion of the bar represents <em>integrated squared error</em>, not the largest pointwise deviation. Switching from cosine to shifted Legendre changes the nine-dimensional approximation space, but not the inner product.</p>
+    <p>The amber shading shows <em>where</em> the curves differ. Unlike the shaded area, the amber portion of the bar represents <em>integrated squared error</em>, not the largest pointwise deviation. Switching among cosine, shifted Legendre, and Walsh changes the selected approximation space, but not the inner product. The first eight Walsh functions span the eight-bin step functions; the ninth starts a finer resolution.</p>
   </details>
-  <footer>Sturm–Liouville chapter · exploratory prototype v2 · computed locally, no external libraries</footer>
+  <footer>Sturm–Liouville chapter · exploratory prototype v5 · computed locally, no external libraries</footer>
 </main>
 <script>
 (()=>{'use strict';
@@ -179,7 +257,28 @@ footer {color:#678496;font-size:11px;margin-top:18px;}
   const origPath=document.getElementById('origPath'), fitPath=document.getElementById('fitPath'), strokePath=document.getElementById('strokePath'), residualFill=document.getElementById('residualFill');
   const rail=document.getElementById('rail');
   const touched=document.getElementById('touchPoint');
-  const presetSelect=document.getElementById('preset');
+  const curveMenu=document.getElementById('curveMenu');
+  const presetTrigger=document.getElementById('presetTrigger');
+  const presetMenu=document.getElementById('presetMenu');
+  const presetLabel=document.getElementById('presetLabel');
+  const presetNames={bump:'Smooth bump',corner:'Sharp corner',step:'Step function',draw:'Draw your own',custom:'Draw your own'};
+  function updatePresetLabel(){
+    const name=presetNames[drawArmed?'draw':preset] || presetNames.bump;
+    presetLabel.textContent=name;
+    presetTrigger.setAttribute('aria-label','Starting curve: '+name);
+  }
+  function closePresetMenu(focusTrigger=false){
+    presetMenu.hidden=true;
+    presetTrigger.setAttribute('aria-expanded','false');
+    if(focusTrigger)presetTrigger.focus();
+  }
+  function openPresetMenu(){
+    presetMenu.hidden=false;
+    presetTrigger.setAttribute('aria-expanded','true');
+    const items=Array.from(presetMenu.querySelectorAll('button'));
+    const active=drawArmed?'draw':preset;
+    (items.find(b=>b.dataset.preset===active)||items[0]).focus();
+  }
   const drawNotice=document.getElementById('drawNotice'), curveHint=document.getElementById('curveHint');
   const capturedValue=document.getElementById('capturedValue');
   const energyCaptured=document.getElementById('energyCaptured');
@@ -188,7 +287,7 @@ footer {color:#678496;font-size:11px;margin-top:18px;}
   const energySection=document.getElementById('energySection'), componentsSection=document.getElementById('componentsSection');
   const selected=new Set([0,1,2,3]);
   let family='cos', preset='bump', baseSamples=null, edits=new Float64Array(EDIT_N);
-  let coeffs={cos:new Float64Array(N),leg:new Float64Array(N)}, totalEnergy=0;
+  let coeffs={cos:new Float64Array(N),leg:new Float64Array(N),wal:new Float64Array(N)}, totalEnergy=0;
   let drawArmed=false, gesture=null, framePending=false;
   const X=(x)=>plot.left+x*(plot.right-plot.left);
   const Y=(y)=> (plot.top+plot.bottom)/2-(y/(2*plot.yLimit))*(plot.bottom-plot.top);
@@ -201,10 +300,17 @@ footer {color:#678496;font-size:11px;margin-top:18px;}
   }
   function basis(which,n,x){
     if(which==='cos')return n===0?1:ROOT2*Math.cos(n*Math.PI*x);
-    return Math.sqrt(2*n+1)*legendre(n,2*x-1);
+    if(which==='leg')return Math.sqrt(2*n+1)*legendre(n,2*x-1);
+    // Walsh sequency ordering: Gray-code index into the Rademacher products.
+    // r_j(x)=(-1)^floor(2^(j+1)*x), with right-continuous jump convention.
+    // For n=0,...,8 these have exactly n sign changes on (0,1).
+    let gray=n^(n>>1), v=1, j=0;
+    const t=Math.min(x,1-1e-12);
+    while(gray){if((gray&1) && (Math.floor(t*2**(j+1))%2))v=-v;gray>>=1;j++;}
+    return v;
   }
-  // Sixteen-point Gauss-Legendre quadrature on 96 panels; x=1/2 is a panel boundary.
-  // This integrates the exact discontinuous step preset without smearing across its jump.
+  // Sixteen-point Gauss-Legendre quadrature on 96 panels. Every k/16 boundary
+  // is a panel boundary, so Walsh jumps and the step preset integrate exactly.
   function gaussNodes(n){
     const a=[];
     for(let i=0;i<Math.floor((n+1)/2);i++){
@@ -228,7 +334,7 @@ footer {color:#678496;font-size:11px;margin-top:18px;}
     const a=k/96,b=(k+1)/96, half=(b-a)/2, center=(a+b)/2;
     for(const g of gauss){
       const x=center+half*g.x;
-      quad.push({x,w:half*g.w,cos:Array.from({length:N},(_,i)=>basis('cos',i,x)),leg:Array.from({length:N},(_,i)=>basis('leg',i,x))});
+      quad.push({x,w:half*g.w,cos:Array.from({length:N},(_,i)=>basis('cos',i,x)),leg:Array.from({length:N},(_,i)=>basis('leg',i,x)),wal:Array.from({length:N},(_,i)=>basis('wal',i,x))});
     }
   }
   function bump(x){return .12+1.14*Math.exp(-.5*Math.pow((x-.35)/.115,2))-.61*Math.exp(-.5*Math.pow((x-.76)/.105,2));}
@@ -247,6 +353,7 @@ footer {color:#678496;font-size:11px;margin-top:18px;}
   }
   function curve(x){return (baseSamples?sampleArray(baseSamples,x):presetAt(x))+sampleArray(edits,x);}
   function updateDrawUI(){
+    updatePresetLabel();
     drawNotice.classList.toggle('visible',drawArmed);
     curveHint.textContent=drawArmed?'Draw across the graph; lift your finger to finish.':'Touch the blue curve and drag to reshape it.';
     energySection.classList.toggle('inactive',drawArmed);
@@ -265,9 +372,9 @@ footer {color:#678496;font-size:11px;margin-top:18px;}
     }
   }
   function compute(){
-    const sumsC=new Float64Array(N),sumsL=new Float64Array(N);let e=0;
-    for(const q of quad){const f=curve(q.x),v=q.w*f;e+=v*f;for(let i=0;i<N;i++){sumsC[i]+=v*q.cos[i];sumsL[i]+=v*q.leg[i];}}
-    coeffs={cos:sumsC,leg:sumsL};totalEnergy=e;
+    const sumsC=new Float64Array(N),sumsL=new Float64Array(N),sumsW=new Float64Array(N);let e=0;
+    for(const q of quad){const f=curve(q.x),v=q.w*f;e+=v*f;for(let i=0;i<N;i++){sumsC[i]+=v*q.cos[i];sumsL[i]+=v*q.leg[i];sumsW[i]+=v*q.wal[i];}}
+    coeffs={cos:sumsC,leg:sumsL,wal:sumsW};totalEnergy=e;
   }
   function projection(x){let v=0;for(const n of selected)v+=coeffs[family][n]*basis(family,n,x);return v;}
   function dPath(fn,count=520){let out='';for(let i=0;i<=count;i++){const x=i/count;out+=(i?'L':'M')+X(x).toFixed(2)+','+Y(fn(x)).toFixed(2)+' ';}return out;}
@@ -286,25 +393,43 @@ footer {color:#678496;font-size:11px;margin-top:18px;}
     }
   }
   function renderGraph(){
-    // A single source path would draw an artificial sloping line across the exact step.
-    // Sample the two sides separately so the discontinuity stays discontinuous.
-    const discontinuous=preset==='step' && baseSamples===null;
-    const intervals=discontinuous?[[0,.5-1e-10],[.5,1]]:[[0,1]];
-    let original='', shaded='';
-    for(const [lo,hi] of intervals){
-      const count=Math.max(2,Math.round(520*(hi-lo)));
+    // Split each curve at every actual discontinuity. The first nine Walsh
+    // functions have jumps at dyadic multiples of 1/16; the step preset jumps
+    // at 1/2. This avoids false diagonal interpolations in either plot or fill.
+    const exactStep=preset==='step' && baseSamples===null;
+    const edges=family==='wal' ? Array.from({length:17},(_,i)=>i/16) : exactStep ? [0,.5,1] : [0,1];
+    let original='', shaded='', fitted='';
+    let previousFit=null;
+    for(let k=0;k<edges.length-1;k++){
+      const a=edges[k],b=edges[k+1],mid=(a+b)/2;
+      const count=Math.max(2,Math.round(520*(b-a)));
+      const fitLevel=family==='wal'?projection(mid):null;
+      const fitAt=x=>family==='wal'?fitLevel:projection(x);
+      if(family==='wal'){
+        const ya=Y(fitLevel);
+        if(k===0)fitted+='M'+X(a).toFixed(2)+','+ya.toFixed(2)+' ';
+        else fitted+='L'+X(a).toFixed(2)+','+previousFit.toFixed(2)+' L'+X(a).toFixed(2)+','+ya.toFixed(2)+' ';
+        fitted+='L'+X(b).toFixed(2)+','+ya.toFixed(2)+' ';
+        previousFit=ya;
+      }
       let previous=null;
       for(let i=0;i<=count;i++){
-        const x=lo+(hi-lo)*i/count, px=X(x), yo=Y(curve(x)), yp=Y(projection(x));
+        const x=a+(b-a)*i/count,px=X(x);
+        // Use the one-sided value of a discontinuous preset at interval ends.
+        const f=exactStep?(mid<.5?-.60:.91)+sampleArray(edits,x):curve(x);
+        const yo=Y(f),yp=Y(fitAt(x));
         original+=(i?'L':'M')+px.toFixed(2)+','+yo.toFixed(2)+' ';
         if(previous){
-          shaded+='M'+previous.x.toFixed(2)+','+previous.yo.toFixed(2)+' L'+px.toFixed(2)+','+yo.toFixed(2)+' L'+px.toFixed(2)+','+yp.toFixed(2)+' L'+previous.x.toFixed(2)+','+previous.yp.toFixed(2)+' Z ';
+          shaded+='M'+previous.x.toFixed(2)+','+previous.yo.toFixed(2)+
+            ' L'+px.toFixed(2)+','+yo.toFixed(2)+
+            ' L'+px.toFixed(2)+','+yp.toFixed(2)+
+            ' L'+previous.x.toFixed(2)+','+previous.yp.toFixed(2)+' Z ';
         }
         previous={x:px,yo,yp};
       }
     }
     origPath.setAttribute('d',original);
-    fitPath.setAttribute('d',dPath(projection));
+    fitPath.setAttribute('d',family==='wal'?fitted:dPath(projection));
     residualFill.setAttribute('d',shaded);
   }
   function formatCoefficient(c){return Math.abs(c)<.005?(c<0?'−':'')+Math.abs(c).toFixed(3): (c<0?'−':'')+Math.abs(c).toFixed(2);}
@@ -407,8 +532,114 @@ footer {color:#678496;font-size:11px;margin-top:18px;}
       curveHint.textContent='Touch the blue curve and drag to reshape it.';
     }
   }
+  // Read-only basis gallery: no edits to selected, curve, or family.
+  const galleryShade=document.getElementById('galleryShade');
+  const galleryDialog=document.getElementById('galleryDialog');
+  const galleryGrid=document.getElementById('galleryGrid');
+  const galleryTitle=document.getElementById('galleryTitle');
+  const galleryFormula=document.getElementById('galleryFormula');
+  const galleryNote=document.getElementById('galleryNote');
+  const galleryOpen=document.getElementById('galleryOpen');
+  const galleryClose=document.getElementById('galleryClose');
+  let galleryPreviousFocus=null;
+  function galleryPlotPath(which,n){
+    const Xp=x=>6+100*x, Yp=y=>43-28*y;
+    let d='';
+    if(which==='wal'){
+      let last=null;
+      for(let k=0;k<16;k++){
+        const a=k/16,b=(k+1)/16,v=basis('wal',n,(a+b)/2),y=Yp(v);
+        if(k===0)d+='M'+Xp(a)+','+y+' ';
+        else d+='L'+Xp(a)+','+last+' L'+Xp(a)+','+y+' ';
+        d+='L'+Xp(b)+','+y+' ';last=y;
+      }
+      return d;
+    }
+    const scale=which==='cos'?(n===0?1:ROOT2):Math.sqrt(2*n+1);
+    for(let i=0;i<=360;i++){
+      const x=i/360,y=basis(which,n,x)/scale;
+      d+=(i?'L':'M')+Xp(x).toFixed(2)+','+Yp(y).toFixed(2)+' ';
+    }
+    return d;
+  }
+  function paintGallery(){
+    const title={cos:'Cosine basis',leg:'Legendre basis',wal:'Walsh basis'};
+    galleryTitle.textContent=title[family];
+    galleryFormula.textContent={
+      cos:'φ₀(x) = 1;  φₙ(x) = √2 cos(nπx),  n ≥ 1',
+      leg:'φₙ(x) = √(2n+1) Pₙ(2x−1)',
+      wal:'φₙ(x) = ±1;  sequency order (n sign changes)'
+    }[family];
+    galleryNote.textContent=family==='wal'?
+      'Walsh functions are piecewise constant. The first eight span all functions constant on eight equal intervals; φ₈ begins the next finer scale.':
+      'Each function has unit L² norm. Thumbnail amplitudes are rescaled individually to make their shapes easy to compare.';
+    galleryGrid.replaceChildren();
+    for(let n=0;n<N;n++){
+      const tile=document.createElement('div');
+      tile.className='gallery-tile'+(selected.has(n)?' is-selected':'');
+      tile.setAttribute('aria-label','Basis function '+n+(selected.has(n)?', selected':''));
+      const label=document.createElement('div');label.className='tile-title';
+      label.append(document.createTextNode('φ'));
+      const sub=document.createElement('sub');sub.textContent=String(n);label.append(sub);
+      const mini=document.createElementNS('http://www.w3.org/2000/svg','svg');
+      mini.setAttribute('viewBox','0 0 112 86');mini.setAttribute('role','img');
+      mini.setAttribute('aria-label','Graph of basis function '+n);
+      const center=newSVG('line',{x1:6,y1:43,x2:106,y2:43,stroke:'#7590a1','stroke-width':'.8','stroke-opacity':'.35'},mini);
+      const path=newSVG('path',{d:galleryPlotPath(family,n),stroke:selected.has(n)?'#73d4c2':'#92b9d2','stroke-width':'2.2',fill:'none','stroke-linecap':'round','stroke-linejoin':'round'},mini);
+      tile.append(label,mini);galleryGrid.append(tile);
+    }
+  }
+  function showGallery(){
+    closePresetMenu();
+    galleryPreviousFocus=document.activeElement;
+    paintGallery();galleryShade.hidden=false;
+    document.body.style.overflow='hidden';
+    galleryClose.focus();
+  }
+  function hideGallery(){
+    if(galleryShade.hidden)return;
+    galleryShade.hidden=true;
+    document.body.style.overflow='';
+    (galleryPreviousFocus&&galleryPreviousFocus.isConnected?galleryPreviousFocus:galleryOpen).focus();
+  }
+  galleryOpen.addEventListener('click',showGallery);
+  galleryClose.addEventListener('click',hideGallery);
+  galleryShade.addEventListener('pointerdown',e=>{if(e.target===galleryShade)hideGallery();});
+  document.addEventListener('keydown',e=>{
+    if(galleryShade.hidden)return;
+    if(e.key==='Escape'){e.preventDefault();hideGallery();}
+    else if(e.key==='Tab'){
+      // The close button is the only focusable element in this passive gallery.
+      e.preventDefault(); galleryClose.focus();
+    }
+  });
   document.querySelectorAll('[data-family]').forEach(b=>b.addEventListener('click',()=>setFamily(b.dataset.family)));
-  presetSelect.addEventListener('change',()=>{const choice=presetSelect.value;presetSelect.value='';if(choice)setPreset(choice);});
+  presetTrigger.addEventListener('click',()=>{
+    if(presetMenu.hidden)openPresetMenu(); else closePresetMenu(true);
+  });
+  presetTrigger.addEventListener('keydown',e=>{
+    if(e.key==='ArrowDown'||e.key==='ArrowUp'){
+      e.preventDefault();openPresetMenu();
+      if(e.key==='ArrowUp')presetMenu.querySelector('button:last-child').focus();
+    }
+  });
+  presetMenu.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{
+    setPreset(b.dataset.preset);
+    closePresetMenu(true);
+  }));
+  presetMenu.addEventListener('keydown',e=>{
+    if(e.key==='Escape'){e.preventDefault();closePresetMenu(true);return;}
+    if(e.key==='Tab'){closePresetMenu();return;}
+    if(e.key==='ArrowDown'||e.key==='ArrowUp'){
+      e.preventDefault();
+      const items=Array.from(presetMenu.querySelectorAll('button'));
+      const index=items.indexOf(document.activeElement);
+      items[(index+(e.key==='ArrowDown'?1:-1)+items.length)%items.length].focus();
+    }
+  });
+  document.addEventListener('pointerdown',e=>{
+    if(!presetMenu.hidden && !curveMenu.contains(e.target))closePresetMenu();
+  });
   document.getElementById('noneButton').addEventListener('click',()=>{selected.clear();render();});
   document.getElementById('allButton').addEventListener('click',()=>{for(let i=0;i<N;i++)selected.add(i);render();});
   document.getElementById('nextButton').addEventListener('click',()=>{
