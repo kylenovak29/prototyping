@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0c1722">
-<title>A Function Is a Vector — Interactive Exploration v5</title>
+<title>A Function Is a Vector — Interactive Exploration v6</title>
 <style>
 :root { color-scheme: dark; --bg:#0c1722; --ink:#e7eef4; --muted:#9bafbe; --faint:#688194; --rule:#263d4e; --surface:#142331; --surface2:#192d3c; --source:#8db6d2; --fit:#55b6a8; --energy:#55b6a8; --miss:#c99366; }
 * {box-sizing:border-box}
@@ -26,6 +26,8 @@ header p { margin:0; color:var(--muted); font-size:13px; }
 .gallery-open:hover {background:var(--surface2);border-color:#7193a8}
 .gallery-open:focus-visible,.gallery-close:focus-visible {outline:2px solid #b5def9;outline-offset:2px}
 .gallery-open svg {width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.curve-choice-row {display:flex; align-items:center; gap:12px;}
+.curve-choice-label {color:var(--muted); font-size:12px; font-weight:600; white-space:nowrap;}
 .curve-menu {position:relative; min-width:166px}
 .curve-menu-trigger {width:100%; display:flex; justify-content:space-between; align-items:center; gap:14px; background:var(--surface); color:var(--ink); border:1px solid var(--rule); border-radius:9px; min-height:43px; padding:8px 12px; font-size:13px; font-weight:600; text-align:left;}
 .curve-menu-trigger svg {width:13px; height:13px; flex:none; opacity:.72; transition:transform .12s ease-out}
@@ -160,10 +162,10 @@ footer {color:#678496;font-size:11px;margin-top:18px;}
         </button>
       </div>
     </div>
-    <div>
-      <span class="group-label">Starting curve</span>
+    <div class="curve-choice-row">
+      <span class="curve-choice-label">Original function</span>
       <div class="curve-menu" id="curveMenu">
-        <button id="presetTrigger" class="curve-menu-trigger" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="presetMenu" aria-label="Starting curve: Smooth bump">
+        <button id="presetTrigger" class="curve-menu-trigger" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="presetMenu" aria-label="Original function: Smooth bump">
           <span id="presetLabel">Smooth bump</span>
           <svg viewBox="0 0 16 16" aria-hidden="true"><path d="m3 6 5 5 5-5" stroke="currentColor" stroke-width="1.7" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </button>
@@ -178,7 +180,7 @@ footer {color:#678496;font-size:11px;margin-top:18px;}
   </div>
   <section aria-label="Function plot">
     <div class="plot-top">
-      <h2 class="section-title">Original and reconstruction</h2>
+      <h2 class="section-title">Function decomposition</h2>
       <div class="legend"><span><i class="line source"></i>Original</span><span><i class="line fit"></i>Reconstruction</span></div>
     </div>
     <div class="chart-wrap">
@@ -248,7 +250,7 @@ footer {color:#678496;font-size:11px;margin-top:18px;}
     <div class="math-eq">∫₀¹ |f|² dx = ∑<sub>selected n</sub> |cₙ|² + ∫₀¹ |f − f<sub>S</sub>|² dx</div>
     <p>The amber shading shows <em>where</em> the curves differ. Unlike the shaded area, the amber portion of the bar represents <em>integrated squared error</em>, not the largest pointwise deviation. Switching among cosine, shifted Legendre, and Walsh changes the selected approximation space, but not the inner product. The first eight Walsh functions span the eight-bin step functions; the ninth starts a finer resolution.</p>
   </details>
-  <footer>Sturm–Liouville chapter · exploratory prototype v5 · computed locally, no external libraries</footer>
+  <footer>Sturm–Liouville chapter · exploratory prototype v6 · computed locally, no external libraries</footer>
 </main>
 <script>
 (()=>{'use strict';
@@ -265,7 +267,7 @@ footer {color:#678496;font-size:11px;margin-top:18px;}
   function updatePresetLabel(){
     const name=presetNames[drawArmed?'draw':preset] || presetNames.bump;
     presetLabel.textContent=name;
-    presetTrigger.setAttribute('aria-label','Starting curve: '+name);
+    presetTrigger.setAttribute('aria-label','Original function: '+name);
   }
   function closePresetMenu(focusTrigger=false){
     presetMenu.hidden=true;
