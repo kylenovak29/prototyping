@@ -4,9 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0c1722">
-<title>Function Decomposition — Interactive Exploration</title>
+<title>A Function Is a Vector — Interactive Exploration v2</title>
 <style>
-:root { color-scheme: dark; --bg:#0c1722; --ink:#e7eef4; --muted:#9bafbe; --faint:#688194; --rule:#263d4e; --surface:#142331; --surface2:#192d3c; --source:#8db6d2; --fit:#efab6c; --resid:#c28bbf; --energy:#55b6a8; --miss:#ac7959; }
+:root { color-scheme: dark; --bg:#0c1722; --ink:#e7eef4; --muted:#9bafbe; --faint:#688194; --rule:#263d4e; --surface:#142331; --surface2:#192d3c; --source:#8db6d2; --fit:#55b6a8; --energy:#55b6a8; --miss:#c99366; }
 * {box-sizing:border-box}
 html { -webkit-text-size-adjust:100%; }
 body { margin:0; background:var(--bg); color:var(--ink); font-family: system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; font-size:14px; line-height:1.42; }
@@ -29,36 +29,36 @@ select { background:var(--surface); color:var(--ink); border:1px solid var(--rul
 .line { width:20px; height:0; border-top:2.5px solid; border-radius:2px }
 .line.source {border-color:var(--source)} .line.fit {border-color:var(--fit)}
 .chart-wrap {position:relative; }
-#mainPlot, #residualPlot {display:block; width:100%; height:auto; overflow:visible}
+#mainPlot {display:block; width:100%; height:auto; overflow:visible}
 #mainPlot {touch-action:none; cursor:crosshair; background:rgba(17,32,44,.3); border-radius:7px; user-select:none; -webkit-user-select:none; }
-#mainPlot text, #residualPlot text {user-select:none; -webkit-user-select:none}
-#mainPlot .grid, #residualPlot .grid {stroke:#456276; stroke-width:.8; opacity:.20}
-#mainPlot .axis, #residualPlot .axis {stroke:#7590a1; stroke-width:1; opacity:.43}
-#mainPlot .tick, #residualPlot .tick {fill:#9cb0c0; font:12px system-ui,sans-serif; opacity:.8}
+#mainPlot text {user-select:none; -webkit-user-select:none}
+#mainPlot .grid {stroke:#456276; stroke-width:.8; opacity:.20}
+#mainPlot .axis {stroke:#7590a1; stroke-width:1; opacity:.43}
+#mainPlot .tick {fill:#9cb0c0; font:12px system-ui,sans-serif; opacity:.8}
 #mainPlot .source-path {stroke:var(--source);stroke-width:3.1;fill:none;stroke-linejoin:round;stroke-linecap:round}
 #mainPlot .fit-path {stroke:var(--fit);stroke-width:3;fill:none;stroke-linejoin:round;stroke-linecap:round}
+#mainPlot .residual-fill {fill:var(--miss);fill-opacity:.20;stroke:none;pointer-events:none}
 #mainPlot .stroke-preview {stroke:#e4f2fb;stroke-width:3;fill:none;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:7 5}
-#residualPlot .resid-path {stroke:var(--resid);stroke-width:2.25;fill:none;stroke-linejoin:round;stroke-linecap:round}
 .draw-notice {position:absolute; top:12px; left:50%; transform:translateX(-50%); white-space:nowrap; background:#172c3bdf; border:1px solid #56748a; border-radius:22px; padding:6px 12px; color:#ebf2f7; font-size:12px; font-weight:600; pointer-events:none; display:none}
 .draw-notice.visible {display:block}
-.curve-actions {display:flex; align-items:center; justify-content:space-between; gap:9px; margin:8px 0 19px; }
+.curve-actions {display:flex; align-items:center; justify-content:flex-start; gap:9px; margin:9px 0 19px; }
 .hint {color:var(--muted); font-size:11px; line-height:1.4; flex:1; }
-.actions {display:flex; gap:7px; align-items:center; flex:none; }
-.action-btn {color:#dce8ee; background:var(--surface2); border:1px solid #325063; border-radius:8px; padding:8px 11px; min-height:37px; font-size:12px; font-weight:600; }
-.action-btn:active {transform:scale(.98)}
-.action-btn:disabled {opacity:.35; cursor:default}
-.action-btn.primary {color:#101d28; background:#cadbe8; border-color:#cadbe8}
-.residual-head {display:flex; justify-content:space-between; align-items:baseline; margin:0 0 2px; }
-.small-meta {font-size:11px;color:var(--muted)}
-.residual-chart {margin-bottom:17px;}
-.energy-head {display:flex; justify-content:space-between; align-items:baseline; flex-wrap:wrap; gap:8px; margin-bottom:8px}
-#capturedValue {font-variant-numeric:tabular-nums; font-weight:700; color:var(--energy); letter-spacing:.015em}
-.energy-bar {display:flex; height:14px; border-radius:7px; overflow:hidden; background:#375065; outline:1px solid #435b6c22}
+.energy-head {display:flex; justify-content:space-between; align-items:end; flex-wrap:wrap; gap:8px; margin-bottom:11px}
+.space-label {font-size:11px; color:var(--muted); margin-top:2px; letter-spacing:.01em}
+.energy-section {transition:opacity .14s ease-out}
+.energy-section.inactive {opacity:.32; pointer-events:none}
+.components.inactive {opacity:.35; pointer-events:none}
+.components {transition:opacity .14s ease-out}
+#capturedValue {font-size:13px; font-variant-numeric:tabular-nums; font-weight:700; color:var(--energy); letter-spacing:.015em}
+.energy-bar {display:flex; height:18px; border-radius:8px; overflow:hidden; background:#375065; outline:1px solid #435b6c22}
 .energy-captured {background:var(--energy); transition:width .17s ease-out;}
 .energy-residual {background:var(--miss); flex:1}
-.energy-key {display:flex; justify-content:space-between; margin-top:6px; color:var(--muted); font-size:11px; font-variant-numeric:tabular-nums;}
-.energy-key strong {font-weight:650; color:#cbdbe4}
-.components {margin-top:22px}
+.energy-key {display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-top:8px; color:var(--muted); font-size:11px;}
+.energy-key span {display:flex;align-items:center;gap:7px}
+.key-dot {display:inline-block;width:9px;height:9px;border-radius:3px;flex:none}
+.key-dot.selected {background:var(--energy)}
+.key-dot.residual {background:var(--miss)}
+.components {margin-top:23px}
 .coeff-head {display:flex; align-items:baseline; justify-content:space-between; gap:10px; margin-bottom:8px}
 .coeff-sub {font-size:11px;color:var(--muted)}
 .rail {display:flex; gap:7px; overflow-x:auto; overflow-y:hidden; scroll-snap-type:x proximity; padding:1px 1px 11px; touch-action:pan-x; overscroll-behavior-x:contain; scrollbar-color:#415e70 transparent; scrollbar-width:thin;}
@@ -66,7 +66,8 @@ select { background:var(--surface); color:var(--ink); border:1px solid var(--rul
 .rail::-webkit-scrollbar-thumb {background:#415e70;border-radius:6px}
 .coeff {display:flex; flex-direction:column; justify-content:space-between; align-items:center; flex:0 0 59px; padding:7px 3px 6px; border:1px solid #30495a; border-radius:9px; background:#142532; color:var(--muted); min-height:119px; scroll-snap-align:start; transition:background .12s,border-color .12s; }
 .coeff[aria-pressed="true"] {background:#193c42; border-color:#58aa9c;color:var(--ink)}
-.coeff:focus-visible,.action-btn:focus-visible, .segment button:focus-visible {outline:2px solid #a6d6fa;outline-offset:2px}
+.coeff:disabled,.selection-actions button:disabled {cursor:default}
+.coeff:focus-visible,.segment button:focus-visible, select:focus-visible {outline:2px solid #a6d6fa;outline-offset:2px}
 .coeff:hover {border-color:#7595a6}
 .coeff .mode-label {font-size:11px;font-weight:700;line-height:1.2;}
 .coeff svg {display:block;width:43px;height:66px;}
@@ -81,8 +82,8 @@ select { background:var(--surface); color:var(--ink); border:1px solid var(--rul
 .math-eq {font-family:Georgia,"Times New Roman",serif;font-size:15px;color:#d7e5ef;letter-spacing:.02em;margin-top:8px;overflow-x:auto;white-space:nowrap}
 footer {color:#678496;font-size:11px;margin-top:18px;}
 @media(min-width:620px){main{padding-top:27px} h1{font-size:27px}.toolbar{margin-bottom:19px}.coeff{flex-basis:64px} .coeff svg{width:46px}.draw-notice{top:18px} }
-@media(max-width:400px){main{padding:15px 12px 30px} h1{font-size:21px}.toolbar{gap:8px}.segment button{padding:8px 11px} select{min-width:145px}.hint{font-size:10.5px}.action-btn{padding:7px 9px}.legend{gap:9px}}
-@media (prefers-reduced-motion:reduce){.energy-captured,.coeff{transition:none}}
+@media(max-width:400px){main{padding:15px 12px 30px} h1{font-size:21px}.toolbar{gap:8px}.segment button{padding:8px 11px} select{min-width:145px}.hint{font-size:10.5px}.legend{gap:9px}}
+@media (prefers-reduced-motion:reduce){.energy-captured,.coeff,.energy-section,.components{transition:none}}
 </style>
 </head>
 <body>
@@ -101,11 +102,12 @@ footer {color:#678496;font-size:11px;margin-top:18px;}
     </div>
     <div>
       <label class="group-label" for="preset">Starting curve</label>
-      <select id="preset" aria-label="Starting curve">
+      <select id="preset" aria-label="Choose or draw a starting curve">
+        <option value="" selected>Choose a curve…</option>
         <option value="bump">Smooth bump</option>
         <option value="corner">Sharp corner</option>
-        <option value="step">Step</option>
-        <option value="custom" disabled>Your drawing</option>
+        <option value="step">Step function</option>
+        <option value="draw">Draw a curve…</option>
       </select>
     </div>
   </div>
@@ -115,10 +117,11 @@ footer {color:#678496;font-size:11px;margin-top:18px;}
       <div class="legend"><span><i class="line source"></i>Original</span><span><i class="line fit"></i>Reconstruction</span></div>
     </div>
     <div class="chart-wrap">
-      <svg id="mainPlot" viewBox="0 0 600 330" role="img" aria-label="Function graph. Drag the original curve to reshape; use Draw new to draw a replacement.">
-        <defs><clipPath id="plotClip"><rect x="40" y="18" width="544" height="274" /></clipPath></defs>
+      <svg id="mainPlot" viewBox="0 0 600 390" role="img" aria-label="Function graph. Drag the blue curve to reshape it, or select Draw a curve from the menu to replace it.">
+        <defs><clipPath id="plotClip"><rect x="40" y="20" width="544" height="328" /></clipPath></defs>
         <g id="mainGrid"></g>
         <g clip-path="url(#plotClip)">
+          <path id="residualFill" class="residual-fill"></path>
           <path id="origPath" class="source-path"></path>
           <path id="fitPath" class="fit-path"></path>
           <path id="strokePath" class="stroke-preview"></path>
@@ -129,35 +132,26 @@ footer {color:#678496;font-size:11px;margin-top:18px;}
     </div>
     <div class="curve-actions">
       <span id="curveHint" class="hint">Touch the blue curve and drag to reshape it.</span>
-      <div class="actions">
-        <button type="button" id="drawButton" class="action-btn primary">Draw new</button>
-        <button type="button" id="undoButton" class="action-btn" disabled>Undo</button>
-      </div>
     </div>
   </section>
-  <section class="residual-chart" aria-label="Residual plot">
-    <div class="residual-head">
-      <h2 class="section-title">Residual <span style="font-weight:450;color:var(--muted)">f(x) − projection</span></h2>
-      <span id="residScale" class="small-meta">Auto-scaled</span>
-    </div>
-    <svg id="residualPlot" viewBox="0 0 600 99" role="img" aria-label="Residual function graph">
-      <defs><clipPath id="residClip"><rect x="40" y="8" width="544" height="76" /></clipPath></defs>
-      <g id="residGrid"></g>
-      <path id="residPath" clip-path="url(#residClip)" class="resid-path"></path>
-    </svg>
-  </section>
-  <section aria-label="Energy breakdown">
+  <section id="energySection" class="energy-section" aria-label="Energy breakdown">
     <div class="energy-head">
-      <h2 class="section-title">Squared L² norm</h2>
+      <div>
+        <h2 class="section-title">Squared L² norm</h2>
+        <div class="space-label">Hilbert space · L²([0,1], dx)</div>
+      </div>
       <div id="capturedValue" aria-live="polite">—</div>
     </div>
-    <div class="energy-bar" role="progressbar" aria-label="Captured squared L2 norm" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="energyBar">
+    <div class="energy-bar" role="progressbar" aria-label="Energy in selected components" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="energyBar">
       <div id="energyCaptured" class="energy-captured" style="width:0"></div>
       <div class="energy-residual"></div>
     </div>
-    <div class="energy-key"><span><strong id="capturedLabel">0%</strong> in selected components</span><span><strong id="residualLabel">100%</strong> residual</span></div>
+    <div class="energy-key">
+      <span><i class="key-dot selected" aria-hidden="true"></i>Selected components</span>
+      <span><i class="key-dot residual" aria-hidden="true"></i>Residual</span>
+    </div>
   </section>
-  <section class="components" aria-label="Basis component selection">
+  <section id="componentsSection" class="components" aria-label="Basis component selection">
     <div class="coeff-head">
       <h2 class="section-title">Basis components</h2>
       <span class="coeff-sub">Tap to toggle · swipe sideways</span>
@@ -174,31 +168,28 @@ footer {color:#678496;font-size:11px;margin-top:18px;}
     <summary>Why does the energy bar work?</summary>
     <p>These are orthonormal bases for the same Hilbert space, L²[0,1]. Every selected component is an orthogonal projection, and the residual is orthogonal to the reconstruction. Thus the squared norm splits exactly:</p>
     <div class="math-eq">∫₀¹ |f|² dx = ∑<sub>selected n</sub> |cₙ|² + ∫₀¹ |f − f<sub>S</sub>|² dx</div>
-    <p>The bar represents integrated squared error, <em>not</em> the largest pointwise deviation. Switching from cosine to shifted Legendre changes the nine-dimensional approximation space, but not the inner product.</p>
+    <p>The amber shading shows <em>where</em> the curves differ. Unlike the shaded area, the amber portion of the bar represents <em>integrated squared error</em>, not the largest pointwise deviation. Switching from cosine to shifted Legendre changes the nine-dimensional approximation space, but not the inner product.</p>
   </details>
-  <footer>Sturm–Liouville chapter · exploratory prototype v1 · computed locally, no external libraries</footer>
+  <footer>Sturm–Liouville chapter · exploratory prototype v2 · computed locally, no external libraries</footer>
 </main>
 <script>
 (()=>{'use strict';
-  const N=9, EDIT_N=257, ROOT2=Math.sqrt(2), plot={left:40,right:584,top:18,bottom:292, yLimit:1.75};
+  const N=9, EDIT_N=257, ROOT2=Math.sqrt(2), VIEW_HEIGHT=390, plot={left:40,right:584,top:20,bottom:348, yLimit:1.75};
   const svg=document.getElementById('mainPlot');
-  const origPath=document.getElementById('origPath'), fitPath=document.getElementById('fitPath'), strokePath=document.getElementById('strokePath');
-  const residualPath=document.getElementById('residPath'), rail=document.getElementById('rail');
+  const origPath=document.getElementById('origPath'), fitPath=document.getElementById('fitPath'), strokePath=document.getElementById('strokePath'), residualFill=document.getElementById('residualFill');
+  const rail=document.getElementById('rail');
   const touched=document.getElementById('touchPoint');
   const presetSelect=document.getElementById('preset');
-  const drawButton=document.getElementById('drawButton'), undoButton=document.getElementById('undoButton');
   const drawNotice=document.getElementById('drawNotice'), curveHint=document.getElementById('curveHint');
   const capturedValue=document.getElementById('capturedValue');
   const energyCaptured=document.getElementById('energyCaptured');
   const energyBar=document.getElementById('energyBar');
-  const capturedLabel=document.getElementById('capturedLabel'), residualLabel=document.getElementById('residualLabel');
   const selectionStatus=document.getElementById('selectionStatus');
-  const residScale=document.getElementById('residScale');
+  const energySection=document.getElementById('energySection'), componentsSection=document.getElementById('componentsSection');
   const selected=new Set([0,1,2,3]);
   let family='cos', preset='bump', baseSamples=null, edits=new Float64Array(EDIT_N);
   let coeffs={cos:new Float64Array(N),leg:new Float64Array(N)}, totalEnergy=0;
   let drawArmed=false, gesture=null, framePending=false;
-  const history=[];
   const X=(x)=>plot.left+x*(plot.right-plot.left);
   const Y=(y)=> (plot.top+plot.bottom)/2-(y/(2*plot.yLimit))*(plot.bottom-plot.top);
   const clamp=(a,lo,hi)=>Math.max(lo,Math.min(hi,a));
@@ -255,10 +246,24 @@ footer {color:#678496;font-size:11px;margin-top:18px;}
     return p1+.5*t*(p2-p0+t*(2*p0-5*p1+4*p2-p3+t*(3*(p1-p2)+p3-p0)));
   }
   function curve(x){return (baseSamples?sampleArray(baseSamples,x):presetAt(x))+sampleArray(edits,x);}
-  function snapshot(){return {preset,base:baseSamples?new Float64Array(baseSamples):null,edits:new Float64Array(edits)};}
-  function pushHistory(s){history.push(s);if(history.length>24)history.shift();undoButton.disabled=false;}
-  function restore(s){preset=s.preset;baseSamples=s.base?new Float64Array(s.base):null;edits=new Float64Array(s.edits);presetSelect.value=preset;drawArmed=false;updateDrawUI();recompute();}
-  function updateDrawUI(){drawButton.textContent=drawArmed?'Cancel':'Draw new';drawNotice.classList.toggle('visible',drawArmed);curveHint.textContent=drawArmed?'Draw across the graph; lift to finish.':'Touch the blue curve and drag to reshape it.';}
+  function updateDrawUI(){
+    drawNotice.classList.toggle('visible',drawArmed);
+    curveHint.textContent=drawArmed?'Draw across the graph; lift your finger to finish.':'Touch the blue curve and drag to reshape it.';
+    energySection.classList.toggle('inactive',drawArmed);
+    componentsSection.classList.toggle('inactive',drawArmed);
+    rail.querySelectorAll('button').forEach(btn=>btn.disabled=drawArmed);
+    document.querySelectorAll('.selection-actions button').forEach(btn=>btn.disabled=drawArmed || (btn.id==='nextButton' && selected.size===N));
+    energyBar.setAttribute('aria-disabled',String(drawArmed));
+    if(drawArmed){
+      capturedValue.textContent='—';
+      energyCaptured.style.width='0%';
+      energyBar.removeAttribute('aria-valuenow');
+      residualFill.setAttribute('d','');
+      origPath.setAttribute('d','');
+      fitPath.setAttribute('d','');
+      hidePointer();
+    }
+  }
   function compute(){
     const sumsC=new Float64Array(N),sumsL=new Float64Array(N);let e=0;
     for(const q of quad){const f=curve(q.x),v=q.w*f;e+=v*f;for(let i=0;i<N;i++){sumsC[i]+=v*q.cos[i];sumsL[i]+=v*q.leg[i];}}
@@ -277,24 +282,30 @@ footer {color:#678496;font-size:11px;margin-top:18px;}
       const t=newSVG('text',{x:32,y:Y(y)+4,class:'tick','text-anchor':'end'},g);t.textContent=String(y);
     }
     for(const [x,label] of [[0,'0'],[.5,'0.5'],[1,'1']]){
-      const t=newSVG('text',{x:X(x),y:316,class:'tick','text-anchor':x===0?'start':x===1?'end':'middle'},g);t.textContent=label;
+      const t=newSVG('text',{x:X(x),y:376,class:'tick','text-anchor':x===0?'start':x===1?'end':'middle'},g);t.textContent=label;
     }
-    const rg=document.getElementById('residGrid');
-    for(let i=0;i<=4;i++){newSVG('line',{x1:X(i/4),y1:8,x2:X(i/4),y2:84,class:'grid'},rg);}
-    newSVG('line',{x1:plot.left,y1:46,x2:plot.right,y2:46,class:'axis'},rg);
-    const z=newSVG('text',{x:32,y:50,class:'tick','text-anchor':'end'},rg);z.textContent='0';
   }
   function renderGraph(){
-    origPath.setAttribute('d',dPath(curve));
+    // A single source path would draw an artificial sloping line across the exact step.
+    // Sample the two sides separately so the discontinuity stays discontinuous.
+    const discontinuous=preset==='step' && baseSamples===null;
+    const intervals=discontinuous?[[0,.5-1e-10],[.5,1]]:[[0,1]];
+    let original='', shaded='';
+    for(const [lo,hi] of intervals){
+      const count=Math.max(2,Math.round(520*(hi-lo)));
+      let previous=null;
+      for(let i=0;i<=count;i++){
+        const x=lo+(hi-lo)*i/count, px=X(x), yo=Y(curve(x)), yp=Y(projection(x));
+        original+=(i?'L':'M')+px.toFixed(2)+','+yo.toFixed(2)+' ';
+        if(previous){
+          shaded+='M'+previous.x.toFixed(2)+','+previous.yo.toFixed(2)+' L'+px.toFixed(2)+','+yo.toFixed(2)+' L'+px.toFixed(2)+','+yp.toFixed(2)+' L'+previous.x.toFixed(2)+','+previous.yp.toFixed(2)+' Z ';
+        }
+        previous={x:px,yo,yp};
+      }
+    }
+    origPath.setAttribute('d',original);
     fitPath.setAttribute('d',dPath(projection));
-    let peak=0;
-    const test=[];
-    for(let i=0;i<=540;i++){const x=i/540,err=curve(x)-projection(x);test.push(err);peak=Math.max(peak,Math.abs(err));}
-    const bound=Math.max(.012,1.12*peak);
-    const ry=e=>46-e/bound*36;
-    let d='';test.forEach((err,i)=>{d+=(i?'L':'M')+X(i/540).toFixed(2)+','+ry(err).toFixed(2)+' ';});
-    residualPath.setAttribute('d',d);
-    residScale.textContent='±'+(bound<.1?bound.toFixed(3):bound.toFixed(2))+' · auto scale';
+    residualFill.setAttribute('d',shaded);
   }
   function formatCoefficient(c){return Math.abs(c)<.005?(c<0?'−':'')+Math.abs(c).toFixed(3): (c<0?'−':'')+Math.abs(c).toFixed(2);}
   function renderRail(){
@@ -303,7 +314,7 @@ footer {color:#678496;font-size:11px;margin-top:18px;}
       let btn=document.getElementById('mode'+n);
       if(!btn){btn=document.createElement('button');btn.type='button';btn.id='mode'+n;btn.className='coeff';btn.innerHTML=`<span class="mode-label">φ<sub>${n}</sub></span><svg viewBox="0 0 43 66" aria-hidden="true"><line x1="4" y1="33" x2="39" y2="33" stroke="#8497a7" stroke-opacity=".48" stroke-width="1"/><rect x="12" y="33" width="19" height="0" rx="2"/></svg><span class="coef-val"></span>`;btn.addEventListener('click',()=>{if(selected.has(n))selected.delete(n);else selected.add(n);render();});rail.append(btn);}
       const h=30*Math.abs(c[n])/max,rect=btn.querySelector('rect');rect.setAttribute('y',c[n]>=0?33-h:33);rect.setAttribute('height',Math.max(h,.9));rect.setAttribute('fill',selected.has(n)?'#55b6a8':'#718796');rect.setAttribute('opacity',selected.has(n)?'1':'.55');
-      btn.setAttribute('aria-pressed',String(selected.has(n)));btn.setAttribute('aria-label',`Mode ${n}, coefficient ${c[n].toFixed(3)}, ${selected.has(n)?'included':'excluded'}`);
+      btn.disabled=drawArmed;btn.setAttribute('aria-pressed',String(selected.has(n)));btn.setAttribute('aria-label',`Mode ${n}, coefficient ${c[n].toFixed(3)}, ${selected.has(n)?'included':'excluded'}`);
       btn.querySelector('.coef-val').textContent=formatCoefficient(c[n]);
     }
   }
@@ -311,19 +322,22 @@ footer {color:#678496;font-size:11px;margin-top:18px;}
     const captured=Array.from(selected).reduce((sum,n)=>sum+coeffs[family][n]**2,0);
     const pct=totalEnergy>1e-13?clamp(100*captured/totalEnergy,0,100):0;
     const display=n=>n.toFixed(1)+'%';
-    capturedValue.textContent=totalEnergy>1e-13?display(pct)+' captured':'Zero function';
+    capturedValue.textContent=totalEnergy>1e-13?display(pct)+' captured':'Undefined for zero function';
     energyCaptured.style.width=pct+'%';
-    capturedLabel.textContent=display(pct);residualLabel.textContent=display(100-pct);
-    energyBar.setAttribute('aria-valuenow',pct.toFixed(1));
+    if(totalEnergy>1e-13)energyBar.setAttribute('aria-valuenow',pct.toFixed(1));
+    else energyBar.removeAttribute('aria-valuenow');
     selectionStatus.textContent=selected.size+' of '+N+' selected';
-    document.getElementById('nextButton').disabled=selected.size===N;
+    document.getElementById('nextButton').disabled=drawArmed || selected.size===N;
   }
   function render(){renderGraph();renderEnergy();renderRail();}
   function recompute(){compute();render();}
   function scheduleRecompute(){if(framePending)return;framePending=true;requestAnimationFrame(()=>{framePending=false;recompute();});}
   function setFamily(which){family=which;document.querySelectorAll('[data-family]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.family===family)));render();}
-  function setPreset(which){pushHistory(snapshot());preset=which;baseSamples=null;edits=new Float64Array(EDIT_N);presetSelect.value=which;drawArmed=false;updateDrawUI();recompute();}
-  function screenXY(evt){const r=svg.getBoundingClientRect();return {sx:(evt.clientX-r.left)/r.width*600,sy:(evt.clientY-r.top)/r.height*330};}
+  function setPreset(which){
+    if(which==='draw'){drawArmed=true;strokePath.setAttribute('d','');updateDrawUI();return;}
+    preset=which;baseSamples=null;edits=new Float64Array(EDIT_N);drawArmed=false;strokePath.setAttribute('d','');updateDrawUI();recompute();
+  }
+  function screenXY(evt){const r=svg.getBoundingClientRect();return {sx:(evt.clientX-r.left)/r.width*600,sy:(evt.clientY-r.top)/r.height*VIEW_HEIGHT};}
   function dataXY(evt){const p=screenXY(evt);return {x:clamp((p.sx-plot.left)/(plot.right-plot.left),0,1), y:clamp(((plot.top+plot.bottom)/2-p.sy)*2*plot.yLimit/(plot.bottom-plot.top),-plot.yLimit,plot.yLimit),...p};}
   function showPointer(p){touched.setAttribute('cx',X(p.x));touched.setAttribute('cy',Y(curve(p.x)));touched.setAttribute('opacity','1');}
   function hidePointer(){touched.setAttribute('opacity','0');}
@@ -349,11 +363,11 @@ footer {color:#678496;font-size:11px;margin-top:18px;}
   function startGesture(evt){
     if(evt.button!==undefined && evt.button!==0)return;
     const p=dataXY(evt);if(p.sx<plot.left-8||p.sx>plot.right+8||p.sy<plot.top-8||p.sy>plot.bottom+8)return;
-    if(drawArmed){gesture={type:'draw',pts:[p],before:snapshot()};strokePath.setAttribute('d',`M${X(p.x)},${Y(p.y)}`);}
+    if(drawArmed){gesture={type:'draw',pts:[p]};strokePath.setAttribute('d',`M${X(p.x)},${Y(p.y)}`);}
     else {
-      const localScale=svg.getBoundingClientRect().height/330;
+      const localScale=svg.getBoundingClientRect().height/VIEW_HEIGHT;
       if(Math.abs(p.sy-Y(curve(p.x)))*localScale>33){curveHint.textContent='Start on the blue curve to reshape it.';return;}
-      gesture={type:'sculpt',prev:p,before:snapshot(),changed:false};showPointer(p);
+      gesture={type:'sculpt',prev:p,changed:false};showPointer(p);
     }
     svg.setPointerCapture(evt.pointerId);
     evt.preventDefault();
@@ -386,17 +400,15 @@ footer {color:#678496;font-size:11px;margin-top:18px;}
     if(g.type==='draw'){
       strokePath.setAttribute('d','');
       if(g.pts.length>=3 && Math.abs(g.pts[g.pts.length-1].x-g.pts[0].x)>.025){
-        pushHistory(g.before);baseSamples=resampleStroke(g.pts);edits=new Float64Array(EDIT_N);preset='custom';presetSelect.value='custom';drawArmed=false;updateDrawUI();recompute();
+        baseSamples=resampleStroke(g.pts);edits=new Float64Array(EDIT_N);preset='custom';drawArmed=false;updateDrawUI();recompute();
       }
     }else{
-      hidePointer();if(g.changed){pushHistory(g.before);recompute();}
+      hidePointer();if(g.changed)recompute();
       curveHint.textContent='Touch the blue curve and drag to reshape it.';
     }
   }
   document.querySelectorAll('[data-family]').forEach(b=>b.addEventListener('click',()=>setFamily(b.dataset.family)));
-  presetSelect.addEventListener('change',()=>setPreset(presetSelect.value));
-  drawButton.addEventListener('click',()=>{drawArmed=!drawArmed;strokePath.setAttribute('d','');updateDrawUI();});
-  undoButton.addEventListener('click',()=>{if(history.length)restore(history.pop());undoButton.disabled=history.length===0;});
+  presetSelect.addEventListener('change',()=>{const choice=presetSelect.value;presetSelect.value='';if(choice)setPreset(choice);});
   document.getElementById('noneButton').addEventListener('click',()=>{selected.clear();render();});
   document.getElementById('allButton').addEventListener('click',()=>{for(let i=0;i<N;i++)selected.add(i);render();});
   document.getElementById('nextButton').addEventListener('click',()=>{
